@@ -130,16 +130,15 @@ const Recipes = ({ isDarkMode, toggleDarkMode }) => {
         }));
 
         setRecipes(mappedSpoonacularResults);
-        console.log('Fetched from Spoonacular:', mappedSpoonacularResults);
       } else {
         setRecipes(edamamResults);
-        console.log('Fetched from Edamam:', edamamResults);
       }
     } catch (error) {
       console.error('Error fetching recipes:', error);
       setRecipes([]);
     } finally {
       setLoading(false);
+      searchActivity(query);
     }
   };
 
@@ -170,13 +169,20 @@ const Recipes = ({ isDarkMode, toggleDarkMode }) => {
       }
     };
 
+    const handlelogged = localStorage.getItem("token");
+  if (handlelogged) {
     fetchSavedRecipes();
     fetchFavRecipes();
+  }
   }, [])
   
 
   const saveRecipe = async (recipe) => {
   try {
+    if(!localStorage.getItem('token')) {
+      alert('Please log in to save recipes.');
+      return;
+    }
     // Extract the needed fields
     const recipeData = {
       title: recipe.label,
@@ -199,8 +205,46 @@ const Recipes = ({ isDarkMode, toggleDarkMode }) => {
   }
 };
 
+const searchActivity = async (title) => {
+  try {
+    await axios.post(
+      'http://localhost:5000/api/activity',
+      { comment: `User search recipe: ${title}` },  // request body
+      {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error saving activity:', error);
+  }
+};
+
+
+const saveActivity = async (title) => {
+  try {
+    await axios.post(
+      'http://localhost:5000/api/activity',
+      { comment: `User viewed recipe: ${title}` },  // request body
+      {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error saving activity:', error);
+  }
+};
+
+
  const FavRecipe = async (recipe) => {
   try {
+    if(!localStorage.getItem('token')) {
+      alert('Please log in to Faviroute recipes.');
+      return;
+    }
     // Extract the needed fields
     const recipeData = {
       title: recipe.label,
@@ -209,7 +253,7 @@ const Recipes = ({ isDarkMode, toggleDarkMode }) => {
       time: recipe.totalTime,
       link: recipe.url,
     };
-
+    
     await axios.post('http://localhost:5000/api/favorites', recipeData, {
       headers: {
         Authorization: `Bearer ${localStorage.getItem('token')}`,
@@ -409,6 +453,7 @@ const Recipes = ({ isDarkMode, toggleDarkMode }) => {
                               <a
                                 href={recipe.url}
                                 target="_blank"
+                                onClick={() => saveActivity(recipe.label)}
                                 rel="noopener noreferrer"
                                 className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center"
                               >

@@ -100,6 +100,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import axios from "axios";
 import { FiSun, FiMoon, FiUser, FiLogOut, FiSettings, FiHeart, FiBookmark } from "react-icons/fi";
 
 export default function Header({ isDarkMode, toggleDarkMode }) {
@@ -120,10 +121,29 @@ export default function Header({ isDarkMode, toggleDarkMode }) {
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
   const toggleProfileMenu = () => setIsProfileMenuOpen(!isProfileMenuOpen);
 
-  const handleLogout = () => {
+     const userDataLo = JSON.parse(localStorage.getItem("user")) || {};
+
+   const handleLogout = async () => {
+     try {
+    const authToken = localStorage.getItem('token');
+    await axios.post(
+      `http://localhost:5000/api/activity`,
+      {
+        userId: userDataLo._id,
+        comment: `${userDataLo.name} logged out at ${new Date().toLocaleString()}`,
+      },
+      {
+        headers: { Authorization: `Bearer ${authToken}` },
+      }
+    );
     logout();
     navigate("/login");
-  };
+  } catch (error) {
+    console.error("Failed to log logout activity:", error);
+    logout();
+    navigate("/login");
+  }
+};
 
   return (
     <header
@@ -253,26 +273,6 @@ export default function Header({ isDarkMode, toggleDarkMode }) {
                       }`}
                     >
                       <FiUser className="inline mr-2" /> Profile
-                    </Link>
-                    <Link
-                      to="/dashboard/saved"
-                      className={`block px-4 py-2 text-sm ${
-                        isDarkMode
-                          ? "text-gray-300 hover:bg-gray-700"
-                          : "text-gray-700 hover:bg-gray-100"
-                      }`}
-                    >
-                      <FiBookmark className="inline mr-2" /> Saved Items
-                    </Link>
-                    <Link
-                      to="/dashboard/settings"
-                      className={`block px-4 py-2 text-sm ${
-                        isDarkMode
-                          ? "text-gray-300 hover:bg-gray-700"
-                          : "text-gray-700 hover:bg-gray-100"
-                      }`}
-                    >
-                      <FiSettings className="inline mr-2" /> Settings
                     </Link>
                     <button
                       onClick={handleLogout}

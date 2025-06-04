@@ -1,8 +1,9 @@
 import { useAuth } from "../context/AuthContext";
 import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
-import Recipes from './Recipes';
-import { FiSettings, FiHeart, FiBookmark, FiUser, FiBarChart2, FiLogOut, FiExternalLink, FiTrash2 } from "react-icons/fi";
+import { FiSettings, FiHeart, FiBookmark, FiUser, FiBarChart2, FiLogOut, FiExternalLink, FiTrash2, FiShoppingCart, FiPlus, FiEdit3, FiCheck, FiX  } from "react-icons/fi";
+
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
@@ -10,6 +11,37 @@ const Dashboard = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const [loading, setLoading] = useState(true);
 
+  const navigate = useNavigate();
+  
+   const userDataLo = JSON.parse(localStorage.getItem("user")) || {};
+
+   const handleLogout = async () => {
+     try {
+    const authToken = localStorage.getItem('token');
+    await axios.post(
+      `http://localhost:5000/api/activity`,
+      {
+        userId: userDataLo._id,
+        comment: `${userDataLo.name} logged out at ${new Date().toLocaleString()}`,
+      },
+      {
+        headers: { Authorization: `Bearer ${authToken}` },
+      }
+    );
+    logout();
+    navigate("/login");
+  } catch (error) {
+    console.error("Failed to log logout activity:", error);
+    logout();
+    navigate("/login");
+  }
+};
+
+
+  const handlelogged = localStorage.getItem("token");
+  if (!handlelogged) {
+    navigate("/login");
+  }
  useEffect(() => {
   const fetchUserData = async () => {
     try {
@@ -97,8 +129,8 @@ const Dashboard = () => {
                   <FiUser className="w-4 h-4" />
                 </div>
               </label>
-              <h2 className="mt-4 text-lg font-semibold">{userData?.name || "User"}</h2>
-              <p className="text-purple-200 text-sm">{userData?.email || "user@example.com"}</p>
+              <h2 className="mt-4 text-lg font-semibold">{userDataLo?.name || "User"}</h2>
+              <p className="text-purple-200 text-sm">{userDataLo?.email || "user@example.com"}</p>
             </div>
             
             <nav className="flex-1 space-y-2">
@@ -134,6 +166,20 @@ const Dashboard = () => {
                 )}
               </button>
               <button
+                onClick={() => setActiveTab("shopping")}
+                className={`flex items-center w-full px-4 py-3 rounded-lg transition ${
+                  activeTab === "shopping" ? "bg-purple-600 text-white" : "text-purple-200 hover:bg-purple-800"
+                }`}
+              >
+                <FiShoppingCart className="mr-3" />
+                Shopping List
+                {userData?.shoppingList?.length > 0 && (
+                  <span className="ml-auto bg-white text-purple-700 text-xs font-bold px-2 py-1 rounded-full">
+                    {userData.shoppingList.length}
+                  </span>
+                )}
+              </button>
+              <button
                 onClick={() => setActiveTab("settings")}
                 className={`flex items-center w-full px-4 py-3 rounded-lg transition ${activeTab === "settings" ? "bg-purple-600 text-white" : "text-purple-200 hover:bg-purple-800"}`}
               >
@@ -143,7 +189,7 @@ const Dashboard = () => {
             </nav>
             
             <button
-              onClick={logout}
+              onClick={handleLogout}
               className="flex items-center w-full px-4 py-3 mt-auto text-purple-200 hover:bg-purple-800 rounded-lg transition"
             >
               <FiLogOut className="mr-3" />
@@ -204,6 +250,7 @@ const Dashboard = () => {
               {activeTab === "overview" && <OverviewTab userData={userData} />}
               {activeTab === "saved" && <SavedItemsTab userData={userData} />}
               {activeTab === "favorites" && <FavoritesTab userData={userData} />}
+              {activeTab === "shopping" && <ShoppingTab userData={userData} />}
               {activeTab === "settings" && <SettingsTab userData={userData} />}
             </div>
           </div>
@@ -213,50 +260,82 @@ const Dashboard = () => {
   );
 };
 
-// Tab components
+
 const OverviewTab = ({ userData }) => {
+  const [activities, setActivities] = useState([]);
+  const [savedItemsCount, setSavedItemsCount] = useState(0);
+  const [favoritesCount, setFavoritesCount] = useState(0);
+  const [todayActivitiesCount, setTodayActivitiesCount] = useState(0);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchOverview = async () => {
+      try {
+        setLoading(true);
+        const token = localStorage.getItem("token");
+        const res = await axios.get("http://localhost:5000/api/activity", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const data = res.data;
+
+        setSavedItemsCount(data.counts.savedRecipes || 0);
+        setFavoritesCount(data.counts.favorites || 0);
+        setTodayActivitiesCount(data.counts.todayActivitiesCount || 0);
+        setActivities(data.activities || []);
+      } catch (err) {
+        console.error("Failed to fetch overview data:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOverview();
+  }, []);
+
   return (
     <div className="p-6">
-      <h2 className="text-2xl font-bold text-gray-800 mb-6">Welcome back, {userData?.name || "User"}!</h2>
-      
+      <h2 className="text-2xl font-bold text-gray-800 mb-6">
+        Welcome back, {userData?.name || "User"}!
+      </h2>
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-gradient-to-r from-purple-50 to-indigo-50 p-6 rounded-lg border border-gray-100">
           <h3 className="text-lg font-semibold text-gray-700 mb-2">Saved Items</h3>
-          <p className="text-3xl font-bold text-purple-600">
-            {userData?.savedItems?.length || 0}
-          </p>
+          <p className="text-3xl font-bold text-purple-600">{savedItemsCount}</p>
           <p className="text-sm text-gray-500 mt-2">Items you've saved for later</p>
         </div>
-        
+
         <div className="bg-gradient-to-r from-blue-50 to-cyan-50 p-6 rounded-lg border border-gray-100">
           <h3 className="text-lg font-semibold text-gray-700 mb-2">Favorites</h3>
-          <p className="text-3xl font-bold text-blue-600">
-            {userData?.favorites?.length || 0}
-          </p>
+          <p className="text-3xl font-bold text-blue-600">{favoritesCount}</p>
           <p className="text-sm text-gray-500 mt-2">Your favorite items</p>
         </div>
-        
+
         <div className="bg-gradient-to-r from-green-50 to-teal-50 p-6 rounded-lg border border-gray-100">
-          <h3 className="text-lg font-semibold text-gray-700 mb-2">Activity</h3>
-          <p className="text-3xl font-bold text-green-600">
-            {userData?.activityCount || 0}
-          </p>
-          <p className="text-sm text-gray-500 mt-2">Recent activities</p>
+          <h3 className="text-lg font-semibold text-gray-700 mb-2">Today's Activity</h3>
+          <p className="text-3xl font-bold text-green-600">{todayActivitiesCount}</p>
+          <p className="text-sm text-gray-500 mt-2">Activities done today</p>
         </div>
       </div>
-      
+
       <div className="bg-white border border-gray-200 rounded-lg p-6">
         <h3 className="text-lg font-semibold text-gray-800 mb-4">Recent Activity</h3>
-        {userData?.recentActivity?.length > 0 ? (
+        {loading ? (
+          <p>Loading activities...</p>
+        ) : activities.length > 0 ? (
           <ul className="space-y-4">
-            {userData.recentActivity.map((activity, index) => (
-              <li key={index} className="flex items-start">
+            {activities.slice(0, 10).map((activity) => (
+              <li key={activity._id} className="flex items-start">
                 <div className="bg-purple-100 p-2 rounded-full mr-3">
                   <FiBookmark className="text-purple-600" />
                 </div>
                 <div>
-                  <p className="text-gray-800">{activity.action}</p>
-                  <p className="text-sm text-gray-500">{activity.date}</p>
+                  <p className="text-gray-800">{activity.comment}</p>
+                  <p className="text-sm text-gray-500">
+                    {new Date(activity.createdAt).toLocaleString()}
+                  </p>
                 </div>
               </li>
             ))}
@@ -270,90 +349,56 @@ const OverviewTab = ({ userData }) => {
     </div>
   );
 };
+
+
+
+
+
+
 const SavedItemsTab = ({ userData }) => {
   const [savedRecipes, setSavedRecipes] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [showSearch, setShowSearch] = useState(false);
 
-  useEffect(() => {
+
+    useEffect(() => {
     fetchSavedRecipes();
   }, []);
 
   const fetchSavedRecipes = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('http://localhost:5000/api/recipes/saved', {
+      const response = await axios.get('http://localhost:5000/api/savedrecipes', {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`
         }
       });
       setSavedRecipes(response.data);
     } catch (err) {
-      console.error('Error fetching saved recipes:', err);
+      console.error('Error fetching favorite recipes:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSaveRecipe = async (recipe) => {
+  const handleRemoveRecipe = async (url) => {
     try {
-      await axios.post('http://localhost:5000/api/recipes/save', { recipe }, {
+      await axios.delete(`http://localhost:5000/api/savedrecipes`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`
-        }
+        },
+        data: { url }
       });
-      fetchSavedRecipes();
+      setSavedRecipes(savedRecipes.filter(recipe => recipe.link !== url));
     } catch (err) {
-      console.error('Error saving recipe:', err);
-    }
-  };
-
-  const handleFavoriteRecipe = async (recipe) => {
-    try {
-      await axios.post('http://localhost:5000/api/recipes/favorite', { recipe }, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      fetchSavedRecipes();
-    } catch (err) {
-      console.error('Error favoriting recipe:', err);
-    }
-  };
-
-  const handleRemoveRecipe = async (uri) => {
-    try {
-      await axios.delete(`http://localhost:5000/api/recipes/remove/${encodeURIComponent(uri)}`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      setSavedRecipes(savedRecipes.filter(recipe => recipe.uri !== uri));
-    } catch (err) {
-      console.error('Error removing recipe:', err);
+      console.error('Error removing Saved:', err);
     }
   };
 
   return (
     <div className="p-6">
-      <div className="flex justify-between items-center mb-6 sticky top-0 bg-white py-4 z-10">
-        <h2 className="text-2xl font-bold text-gray-800">
-          {showSearch ? 'Find Recipes' : 'Saved Recipes'}
-        </h2>
-        <button 
-          onClick={() => setShowSearch(!showSearch)}
-          className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
-        >
-          {showSearch ? 'View Saved Recipes' : 'Find Recipes'}
-        </button>
-      </div>
+      <h2 className="text-2xl font-bold text-gray-800 mb-6 sticky top-0 bg-white py-4 z-10">Favorites</h2>
       
-      {showSearch ? (
-        <Recipes 
-          onSaveRecipe={handleSaveRecipe} 
-          onFavoriteRecipe={handleFavoriteRecipe}
-        />
-      ) : loading ? (
+      {loading ? (
         <div className="flex justify-center py-12">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
         </div>
@@ -369,41 +414,25 @@ const SavedItemsTab = ({ userData }) => {
                 />
               </div>
               <div className="p-4">
-                <h3 className="font-semibold text-lg mb-1">{recipe.label}</h3>
+                <h3 className="font-semibold text-lg mb-1">{recipe.title}</h3>
                 <p className="text-gray-600 text-sm mb-2">
-                  {recipe.source} • {Math.round(recipe.calories)} calories
+                   {Math.round(recipe.calories)} calories
                 </p>
-                <div className="flex flex-wrap gap-1 mb-3">
-                  {recipe.dietLabels?.slice(0, 3).map((label, i) => (
-                    <span key={i} className="px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded-full">
-                      {label}
-                    </span>
-                  ))}
-                </div>
                 <div className="flex justify-between items-center">
                   <a 
-                    href={recipe.url} 
+                    href={recipe.link} 
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="flex items-center text-purple-600 hover:text-purple-800 text-sm"
                   >
                     <FiExternalLink className="mr-1" /> View
                   </a>
-                  <div className="flex space-x-2">
-                    <button 
-                      onClick={() => handleFavoriteRecipe(recipe)}
-                      className={`flex items-center text-sm ${recipe.isFavorite ? 'text-red-500' : 'text-gray-500 hover:text-red-500'}`}
-                    >
-                      <FiHeart className={`mr-1 ${recipe.isFavorite ? 'fill-current' : ''}`} />
-                      {recipe.isFavorite ? 'Favorited' : 'Favorite'}
-                    </button>
-                    <button 
-                      onClick={() => handleRemoveRecipe(recipe.uri)}
-                      className="flex items-center text-gray-500 hover:text-red-700 text-sm"
-                    >
-                      <FiTrash2 className="mr-1" /> Remove
-                    </button>
-                  </div>
+                  <button 
+                    onClick={() => handleRemoveRecipe(recipe.link)}
+                    className="flex items-center text-red-500 hover:text-red-700 text-sm"
+                  >
+                    <FiHeart className="fill-current mr-1" /> Remove
+                  </button>
                 </div>
               </div>
             </div>
@@ -416,12 +445,7 @@ const SavedItemsTab = ({ userData }) => {
           </div>
           <h3 className="text-xl font-semibold text-gray-800 mb-2">No saved recipes yet</h3>
           <p className="text-gray-600 mb-4">Save recipes to see them appear here</p>
-          <button 
-            onClick={() => setShowSearch(true)}
-            className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
-          >
-            Find Recipes
-          </button>
+          
         </div>
       )}
     </div>
@@ -439,7 +463,7 @@ const FavoritesTab = ({ userData }) => {
   const fetchFavoriteRecipes = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('http://localhost:5000/api/recipes/favorites', {
+      const response = await axios.get('http://localhost:5000/api/favorites', {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`
         }
@@ -452,14 +476,15 @@ const FavoritesTab = ({ userData }) => {
     }
   };
 
-  const handleRemoveFavorite = async (uri) => {
+  const handleRemoveFavorite = async (url) => {
     try {
-      await axios.delete(`http://localhost:5000/api/recipes/remove-favorite/${encodeURIComponent(uri)}`, {
+      await axios.delete(`http://localhost:5000/api/favorites`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`
-        }
+        },
+        data: { url }
       });
-      setFavoriteRecipes(favoriteRecipes.filter(recipe => recipe.uri !== uri));
+      setFavoriteRecipes(favoriteRecipes.filter(recipe => recipe.link !== url));
     } catch (err) {
       console.error('Error removing favorite:', err);
     }
@@ -485,13 +510,13 @@ const FavoritesTab = ({ userData }) => {
                 />
               </div>
               <div className="p-4">
-                <h3 className="font-semibold text-lg mb-1">{recipe.label}</h3>
+                <h3 className="font-semibold text-lg mb-1">{recipe.title}</h3>
                 <p className="text-gray-600 text-sm mb-2">
-                  {recipe.source} • {Math.round(recipe.calories)} calories
+                   {Math.round(recipe.calories)} calories
                 </p>
                 <div className="flex justify-between items-center">
                   <a 
-                    href={recipe.url} 
+                    href={recipe.link} 
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="flex items-center text-purple-600 hover:text-purple-800 text-sm"
@@ -499,7 +524,7 @@ const FavoritesTab = ({ userData }) => {
                     <FiExternalLink className="mr-1" /> View
                   </a>
                   <button 
-                    onClick={() => handleRemoveFavorite(recipe.uri)}
+                    onClick={() => handleRemoveFavorite(recipe.link)}
                     className="flex items-center text-red-500 hover:text-red-700 text-sm"
                   >
                     <FiHeart className="fill-current mr-1" /> Remove
@@ -521,6 +546,167 @@ const FavoritesTab = ({ userData }) => {
     </div>
   );
 };
+
+
+const ShoppingTab = () => {
+  const [items, setItems] = useState([]);
+  const [comment, setComment] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [editComment, setEditComment] = useState("");
+
+  const token = localStorage.getItem("token");
+
+  useEffect(() => {
+    fetchItems();
+  }, []);
+
+  const fetchItems = async () => {
+    setLoading(true);
+    try {
+      const res = await axios.get("http://localhost:5000/api/list", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setItems(res.data);
+    } catch (err) {
+      console.error("Failed to fetch items:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addItem = async () => {
+    if (!comment.trim()) return;
+    try {
+      const res = await axios.post(
+        "http://localhost:5000/api/list",
+        { comment },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setItems([res.data, ...items]);
+      setComment("");
+    } catch (err) {
+      console.error("Failed to add item:", err);
+    }
+  };
+
+  const deleteItem = async (id) => {
+    try {
+      await axios.delete(`http://localhost:5000/api/list/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setItems(items.filter((item) => item._id !== id));
+    } catch (err) {
+      console.error("Failed to delete item:", err);
+    }
+  };
+
+  const updateItem = async (id) => {
+    if (!editComment.trim()) return;
+    try {
+      const res = await axios.put(
+        `http://localhost:5000/api/list/${id}`,
+        { comment: editComment },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setItems(items.map((item) => (item._id === id ? res.data : item)));
+      setEditingId(null);
+      setEditComment("");
+    } catch (err) {
+      console.error("Failed to update item:", err);
+    }
+  };
+
+  return (
+    <div className="p-6 max-w-3xl mx-auto">
+      <h2 className="text-2xl font-bold text-gray-800 mb-4">Shopping List</h2>
+
+      {/* Add new item */}
+      <div className="flex items-center gap-2 mb-6">
+        <input
+          type="text"
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          placeholder="Add a new item..."
+          className="flex-grow p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+        />
+        <button
+          onClick={addItem}
+          className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition"
+        >
+          <FiPlus />
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-10">
+          <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-purple-500"></div>
+        </div>
+      ) : items.length === 0 ? (
+        <p className="text-gray-600 text-center">No shopping items yet.</p>
+      ) : (
+        <ul className="space-y-4">
+          {items.map((item) => (
+            <li
+              key={item._id}
+              className="flex items-center justify-between bg-white shadow p-4 rounded-lg"
+            >
+              {editingId === item._id ? (
+                <div className="flex flex-grow items-center gap-2">
+                  <input
+                    type="text"
+                    value={editComment}
+                    onChange={(e) => setEditComment(e.target.value)}
+                    className="flex-grow border border-gray-300 rounded px-2 py-1"
+                  />
+                  <button
+                    onClick={() => updateItem(item._id)}
+                    className="text-green-600 hover:text-green-800"
+                  >
+                    <FiCheck />
+                  </button>
+                  <button
+                    onClick={() => {
+                      setEditingId(null);
+                      setEditComment("");
+                    }}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    <FiX />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex-grow">{item.comment}</div>
+              )}
+
+              {editingId !== item._id && (
+                <div className="flex items-center gap-2 ml-4">
+                  <button
+                    onClick={() => {
+                      setEditingId(item._id);
+                      setEditComment(item.comment);
+                    }}
+                    className="text-blue-500 hover:text-blue-700"
+                  >
+                    <FiEdit3 />
+                  </button>
+                  <button
+                    onClick={() => deleteItem(item._id)}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    <FiTrash2 />
+                  </button>
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+};
+
+
 const SettingsTab = ({ userData }) => {
   const [formData, setFormData] = useState({
     name: "",
