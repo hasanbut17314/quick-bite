@@ -207,6 +207,9 @@ const Recipes = ({ isDarkMode, toggleDarkMode }) => {
 
 const searchActivity = async (title) => {
   try {
+    if(!localStorage.getItem('token')) {
+     return;  
+    }
     await axios.post(
       'http://localhost:5000/api/activity',
       { comment: `User search recipe: ${title}` },  // request body
@@ -224,6 +227,9 @@ const searchActivity = async (title) => {
 
 const saveActivity = async (title) => {
   try {
+    if(!localStorage.getItem('token')) {
+     return;  
+    }
     await axios.post(
       'http://localhost:5000/api/activity',
       { comment: `User viewed recipe: ${title}` },  // request body
