@@ -37,6 +37,10 @@ const Dashboard = () => {
   if (user?._id) {
     fetchUserData();
   }
+  else
+  {
+    setLoading(false);
+  }
 }, [user]);
 
   const handleImageUpload = async (event) => {
