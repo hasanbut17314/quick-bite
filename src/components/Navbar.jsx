@@ -130,7 +130,7 @@ export default function Header({ isDarkMode, toggleDarkMode }) {
       `http://localhost:5000/api/activity`,
       {
         userId: userDataLo._id,
-        comment: `${userDataLo.name} logged out at ${new Date().toLocaleString()}`,
+        comment: `logged out at ${new Date().toLocaleString()}`,
       },
       {
         headers: { Authorization: `Bearer ${authToken}` },

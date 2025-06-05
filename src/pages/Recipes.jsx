@@ -276,7 +276,7 @@ const searchActivity = async (title) => {
     }
     await axios.post(
       'http://localhost:5000/api/activity',
-      { comment: `User search recipe: ${title}` },  // request body
+      { comment: `search recipe: ${title}` },  // request body
       {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`,
@@ -296,7 +296,7 @@ const saveActivity = async (title) => {
     }
     await axios.post(
       'http://localhost:5000/api/activity',
-      { comment: `User viewed recipe: ${title}` },  // request body
+      { comment: `viewed recipe: ${title}` },  // request body
       {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`,

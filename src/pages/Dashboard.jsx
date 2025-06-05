@@ -23,8 +23,8 @@ const Dashboard = () => {
     await axios.post(
       `http://localhost:5000/api/activity`,
       {
-        userId: userDataLo._id,
-        comment: `${userDataLo.name} logged out at ${new Date().toLocaleString()}`,
+        userId: userData._id,
+        comment: `logged out at ${new Date().toLocaleString()}`,
       },
       {
         headers: { Authorization: `Bearer ${authToken}` },
@@ -139,8 +139,8 @@ const Dashboard = () => {
                   <FiUser className="w-4 h-4" />
                 </div>
               </label>
-              <h2 className="mt-4 text-lg font-semibold">{userDataLo?.name || "User"}</h2>
-              <p className="text-purple-200 text-sm">{userDataLo?.email || "user@example.com"}</p>
+              <h2 className="mt-4 text-lg usernameUpdate font-semibold">{userData?.name || "User"}</h2>
+              <p className="text-purple-200 useremailUpdate text-sm">{userData?.email || "user@example.com"}</p>
             </div>
             
             <nav className="flex-1 space-y-2">
@@ -232,8 +232,8 @@ const Dashboard = () => {
     />
   </label>
   <div>
-    <h2 className="text-lg font-semibold text-gray-800">{userData?.name || "User"}</h2>
-    <p className="text-sm text-gray-600">{userData?.email || "user@example.com"}</p>
+    <h2 className="text-lg usernameUpdate font-semibold text-gray-800">{userData?.name || "User"}</h2>
+    <p className="text-sm useremailUpdate text-gray-600">{userData?.email || "user@example.com"}</p>
   </div>
   <div className="ml-auto">
     <button
@@ -356,7 +356,7 @@ const OverviewTab = ({ userData }) => {
                   <FiBookmark className="text-purple-600" />
                 </div>
                 <div>
-                  <p className="text-gray-800">{activity.comment}</p>
+                  <p className="text-gray-800">{userData.name} {activity.comment}</p>
                   <p className="text-sm text-gray-500">
                     {new Date(activity.createdAt).toLocaleString()}
                   </p>
@@ -798,96 +798,193 @@ const ShoppingTab = () => {
 
 
 
-const SettingsTab = ({ userData }) => {
+const SettingsTab = () => {
+  const [userData, setUserData] = useState(null);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
-    preferences: {}
+    preferences: {
+      notifications: true,
+      darkMode: false,
+      dietaryRestrictions: [],
+      favoriteCuisines: [],
+      mealTypes: [],
+    },
   });
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
-  const { user } = useAuth();
+  const [loadingUserData, setLoadingUserData] = useState(true);
 
   const dietaryOptions = [
-    "Vegetarian", "Vegan", "Gluten-Free", "Dairy-Free",
-    "Nut-Free", "Keto", "Paleo", "Low-Carb", "Halal", "Kosher"
+    "Vegetarian",
+    "Vegan",
+    "Gluten-Free",
+    "Dairy-Free",
+    "Nut-Free",
+    "Keto",
+    "Paleo",
+    "Low-Carb",
+    "Halal",
+    "Kosher",
   ];
 
   const cuisineOptions = [
-    "American", "Italian", "Mexican", "Chinese",
-    "Japanese", "Indian", "Mediterranean", "French", "Thai"
+    "American",
+    "Italian",
+    "Mexican",
+    "Chinese",
+    "Japanese",
+    "Indian",
+    "Mediterranean",
+    "French",
+    "Thai",
   ];
 
   const mealTypeOptions = [
-    "Breakfast", "Lunch", "Dinner", "Snack", "Dessert"
+    "Breakfast",
+    "Lunch",
+    "Dinner",
+    "Snack",
+    "Dessert",
   ];
 
+  // Fetch user data on mount
+  useEffect(() => {
+    const fetchUserData = async () => {
+      setLoadingUserData(true);
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) {
+          console.error("No token found in localStorage");
+          return;
+        }
+
+        const user = JSON.parse(localStorage.getItem("user"));
+        if (!user || !user.id) {
+          console.error("No valid user found in localStorage");
+          return;
+        }
+
+        const response = await axios.get(
+          `http://localhost:5000/api/users/${user.id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        setUserData(response.data);
+        localStorage.setItem("userData", JSON.stringify(response.data));
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+      } finally {
+        setLoadingUserData(false);
+      }
+    };
+
+    fetchUserData();
+  }, []);
+
+  // Update form data when userData changes
   useEffect(() => {
     if (userData) {
       setFormData({
         name: userData.name || "",
         email: userData.email || "",
-        preferences: userData.preferences || {
-          notifications: true,
-          darkMode: false,
-          dietaryRestrictions: [],
-          favoriteCuisines: [],
-          mealTypes: []
-        }
+        preferences: {
+          notifications: userData.preferences?.notifications ?? true,
+          darkMode: userData.preferences?.darkMode ?? false,
+          dietaryRestrictions: userData.preferences?.dietaryRestrictions || [],
+          favoriteCuisines: userData.preferences?.favoriteCuisines || [],
+          mealTypes: userData.preferences?.mealTypes || [],
+        },
       });
     }
   }, [userData]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
   const handlePreferenceChange = (category, value) => {
     const currentValues = formData.preferences[category] || [];
     const newValues = currentValues.includes(value)
-      ? currentValues.filter(item => item !== value)
+      ? currentValues.filter((item) => item !== value)
       : [...currentValues, value];
 
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       preferences: {
         ...prev.preferences,
-        [category]: newValues
-      }
+        [category]: newValues,
+      },
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleTogglePreference = (category) => {
+    setFormData((prev) => ({
+      ...prev,
+      preferences: {
+        ...prev.preferences,
+        [category]: !prev.preferences[category],
+      },
+    }));
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setSuccessMessage("");
 
+    const authToken = localStorage.getItem("token");
     const payload = {
       name: formData.name,
       email: formData.email,
       preferences: {
-        notifications: formData.preferences?.notifications || false,
-        darkMode: formData.preferences?.darkMode || false,
-        dietaryRestrictions: formData.preferences?.dietaryRestrictions || [],
-        favoriteCuisines: formData.preferences?.favoriteCuisines || [],
-        mealTypes: formData.preferences?.mealTypes || []
-      }
+        notifications: formData.preferences.notifications,
+        darkMode: formData.preferences.darkMode,
+        dietaryRestrictions: formData.preferences.dietaryRestrictions,
+        favoriteCuisines: formData.preferences.favoriteCuisines,
+        mealTypes: formData.preferences.mealTypes,
+      },
     };
 
     try {
-      console.log("Payload to send:", payload);
-      setSuccessMessage("Settings simulated successfully (check console).");
+      const res = await axios.put(
+        `http://localhost:5000/api/preferences`,
+        payload,
+        {
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+          },
+        }
+      );
+
+      document.querySelectorAll(".usernameUpdate").forEach((el) => {
+        el.textContent = res.data.name;
+      });
+      document.querySelectorAll(".useremailUpdate").forEach((el) => {
+        el.textContent = res.data.email;
+      });
+      setSuccessMessage("Settings updated successfully!");
       setTimeout(() => setSuccessMessage(""), 3000);
     } catch (err) {
-      console.error("Simulated error:", err);
+      console.error("Failed to update:", err);
     } finally {
       setIsLoading(false);
     }
   };
+
+  if (loadingUserData) {
+    return (
+      <div className="p-6 text-center text-gray-600">Loading user settings...</div>
+    );
+  }
 
   return (
     <div className="p-6">
@@ -902,20 +999,32 @@ const SettingsTab = ({ userData }) => {
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+            <label
+              className="block text-sm font-medium text-gray-700 mb-1"
+              htmlFor="name"
+            >
+              Name
+            </label>
             <input
               type="text"
               name="name"
+              id="name"
               value={formData.name}
               onChange={handleChange}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <label
+              className="block text-sm font-medium text-gray-700 mb-1"
+              htmlFor="email"
+            >
+              Email
+            </label>
             <input
               type="email"
               name="email"
+              id="email"
               value={formData.email}
               onChange={handleChange}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
@@ -930,19 +1039,14 @@ const SettingsTab = ({ userData }) => {
               <input
                 type="checkbox"
                 id="notifications"
-                checked={formData.preferences?.notifications || false}
-                onChange={() =>
-                  setFormData(prev => ({
-                    ...prev,
-                    preferences: {
-                      ...prev.preferences,
-                      notifications: !prev.preferences?.notifications
-                    }
-                  }))
-                }
+                checked={formData.preferences.notifications}
+                onChange={() => handleTogglePreference("notifications")}
                 className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
               />
-              <label htmlFor="notifications" className="ml-2 block text-sm text-gray-700">
+              <label
+                htmlFor="notifications"
+                className="ml-2 block text-sm text-gray-700"
+              >
                 Email notifications
               </label>
             </div>
@@ -950,38 +1054,42 @@ const SettingsTab = ({ userData }) => {
               <input
                 type="checkbox"
                 id="darkMode"
-                checked={formData.preferences?.darkMode || false}
-                onChange={() =>
-                  setFormData(prev => ({
-                    ...prev,
-                    preferences: {
-                      ...prev.preferences,
-                      darkMode: !prev.preferences?.darkMode
-                    }
-                  }))
-                }
+                checked={formData.preferences.darkMode}
+                onChange={() => handleTogglePreference("darkMode")}
                 className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
               />
-              <label htmlFor="darkMode" className="ml-2 block text-sm text-gray-700">
+              <label
+                htmlFor="darkMode"
+                className="ml-2 block text-sm text-gray-700"
+              >
                 Dark mode
               </label>
             </div>
           </div>
         </div>
 
+        {/* Dietary Preferences */}
         <div>
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Dietary Preferences</h3>
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">
+            Dietary Preferences
+          </h3>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
-            {dietaryOptions.map(option => (
+            {dietaryOptions.map((option) => (
               <div key={option} className="flex items-center">
                 <input
                   type="checkbox"
                   id={`diet-${option}`}
-                  checked={formData.preferences?.dietaryRestrictions?.includes(option) || false}
+                  checked={
+                    formData.preferences.dietaryRestrictions?.includes(option) ||
+                    false
+                  }
                   onChange={() => handlePreferenceChange("dietaryRestrictions", option)}
                   className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
                 />
-                <label htmlFor={`diet-${option}`} className="ml-2 block text-sm text-gray-700">
+                <label
+                  htmlFor={`diet-${option}`}
+                  className="ml-2 block text-sm text-gray-700"
+                >
                   {option}
                 </label>
               </div>
@@ -989,19 +1097,28 @@ const SettingsTab = ({ userData }) => {
           </div>
         </div>
 
+        {/* Favorite Cuisines */}
         <div>
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Favorite Cuisines</h3>
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">
+            Favorite Cuisines
+          </h3>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
-            {cuisineOptions.map(option => (
+            {cuisineOptions.map((option) => (
               <div key={option} className="flex items-center">
                 <input
                   type="checkbox"
                   id={`cuisine-${option}`}
-                  checked={formData.preferences?.favoriteCuisines?.includes(option) || false}
+                  checked={
+                    formData.preferences.favoriteCuisines?.includes(option) ||
+                    false
+                  }
                   onChange={() => handlePreferenceChange("favoriteCuisines", option)}
                   className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
                 />
-                <label htmlFor={`cuisine-${option}`} className="ml-2 block text-sm text-gray-700">
+                <label
+                  htmlFor={`cuisine-${option}`}
+                  className="ml-2 block text-sm text-gray-700"
+                >
                   {option}
                 </label>
               </div>
@@ -1009,19 +1126,23 @@ const SettingsTab = ({ userData }) => {
           </div>
         </div>
 
+        {/* Meal Types */}
         <div>
           <h3 className="text-lg font-semibold text-gray-800 mb-4">Meal Types</h3>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
-            {mealTypeOptions.map(option => (
+            {mealTypeOptions.map((option) => (
               <div key={option} className="flex items-center">
                 <input
                   type="checkbox"
                   id={`meal-${option}`}
-                  checked={formData.preferences?.mealTypes?.includes(option) || false}
+                  checked={formData.preferences.mealTypes?.includes(option) || false}
                   onChange={() => handlePreferenceChange("mealTypes", option)}
                   className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
                 />
-                <label htmlFor={`meal-${option}`} className="ml-2 block text-sm text-gray-700">
+                <label
+                  htmlFor={`meal-${option}`}
+                  className="ml-2 block text-sm text-gray-700"
+                >
                   {option}
                 </label>
               </div>
@@ -1039,9 +1160,25 @@ const SettingsTab = ({ userData }) => {
           >
             {isLoading ? (
               <>
-                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                <svg
+                  className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
                 </svg>
                 Saving...
               </>

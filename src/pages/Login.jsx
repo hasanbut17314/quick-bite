@@ -46,7 +46,7 @@ const Login = ({ isDarkMode, toggleDarkMode }) => {
             `http://localhost:5000/api/activity`,
             {
               userId: user._id,
-              comment: `${user.name} logged in at ${new Date().toLocaleString()}`,
+              comment: `logged in at ${new Date().toLocaleString()}`,
             },
             {
               headers: { Authorization: `Bearer ${token}` },
