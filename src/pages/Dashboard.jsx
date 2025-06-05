@@ -210,7 +210,7 @@ const Dashboard = () => {
       </div>
 
       {/* Mobile header */}
-      <div className="md:hidden bg-purple-700 text-white p-4 flex justify-between items-center">
+      <div className="hidden bg-purple-700 text-white p-4 flex justify-between items-center">
         <h1 className="text-xl font-bold">Dashboard</h1>
         <button className="p-2 rounded-full bg-purple-600">
           <FiSettings className="w-5 h-5" />
@@ -223,23 +223,36 @@ const Dashboard = () => {
           <div className="max-w-6xl mx-auto">
             {/* Mobile profile header */}
             <div className="md:hidden flex items-center mb-6">
-              <label className="relative mr-4">
-                <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
-                <img
-                  src={userData?.profileImage ? `http://localhost:5000${userData.profileImage}` : "https://ui-avatars.com/api/?name=" + (userData?.name || "User") + "&background=random"}
-                  alt="Profile"
-                  className="w-12 h-12 rounded-full object-cover border-2 border-purple-300 cursor-pointer"
-                />
-              </label>
-              <div>
-                <h2 className="text-lg font-semibold text-gray-800">{userData?.name || "User"}</h2>
-                <p className="text-sm text-gray-600">{userData?.email || "user@example.com"}</p>
-              </div>
-            </div>
+  <label className="relative mr-4">
+    <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+    <img
+      src={imgUrl ? `${imgUrl}` : "https://ui-avatars.com/api/?name=" + (userData?.name || "User") + "&background=random"}
+      alt="Profile"
+      className="w-12 h-12 rounded-full object-cover border-2 border-purple-300 cursor-pointer"
+    />
+  </label>
+  <div>
+    <h2 className="text-lg font-semibold text-gray-800">{userData?.name || "User"}</h2>
+    <p className="text-sm text-gray-600">{userData?.email || "user@example.com"}</p>
+  </div>
+  <div className="ml-auto">
+    <button
+  onClick={handleLogout}
+  className="flex items-center px-4 py-2 text-white bg-purple-700 hover:bg-purple-800 rounded-lg transition"
+>
+  <FiLogOut className="mr-2" />
+  Logout
+</button>
+
+  </div>
+</div>
+
+
+            
 
             {/* Mobile tabs */}
             <div className="md:hidden flex overflow-x-auto mb-6 pb-2 space-x-2">
-              {["overview", "saved", "favorites", "settings"].map((tab) => (
+              {["overview", "saved", "favorites", "shopping", "settings"].map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
@@ -253,6 +266,7 @@ const Dashboard = () => {
                   )}
                 </button>
               ))}
+              
             </div>
 
             {/* Dashboard content */}
