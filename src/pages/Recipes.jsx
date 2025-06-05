@@ -199,11 +199,75 @@ const Recipes = ({ isDarkMode, toggleDarkMode }) => {
     });
 
     setSavedRecipes([...savedRecipes, recipe.url]); // keep recipe.uri if you want to track saved recipes by uri
+    createShoppingList(recipe);
 
   } catch (error) {
     console.error('Error saving recipe:', error);
   }
 };
+
+
+const createShoppingList = async (recipe) => {
+  const token = localStorage.getItem("token");
+
+  if (!recipe.ingredients || recipe.ingredients.length === 0) {
+    console.error("No ingredients found in recipe.");
+    return;
+  }
+
+  // Prepare ingredients array as-is, or map if you want only specific fields
+  const ingredients = recipe.ingredients.map(({ text, quantity }) => ({
+    name: text,
+    quantity,
+  }));
+
+  const payload = {
+    recipeId: recipe.url,            // assuming your recipe has _id field
+    comment: `Shopping list for recipe: ${recipe.label || "Unnamed"}`, // optional comment
+    ingredients,
+  };
+
+  try {
+    const res = await axios.post(
+      "http://localhost:5000/api/list",
+      payload,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+  } catch (error) {
+    console.error("Failed to create shopping list item:", error);
+  }
+};
+
+
+const deleteShoppingList = async (recipeUrl) => {
+  const token = localStorage.getItem("token");
+
+  if (!recipeUrl) {
+    console.error("Recipe URL is required to delete shopping list.");
+    return;
+  }
+
+  try {
+    const res = await axios.delete(
+      "http://localhost:5000/api/list", // assuming this is your delete endpoint
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        data: { recipeId: recipeUrl }, // DELETE with a body requires 'data' in axios
+      }
+    );
+
+  } catch (error) {
+    console.error("Failed to delete shopping list item:", error);
+  }
+};
+
+
 
 const searchActivity = async (title) => {
   try {
@@ -284,6 +348,7 @@ const saveActivity = async (title) => {
       data: { url }  // send URL in body properly
     });
     setSavedRecipes(savedRecipes.filter(id => id !== url));
+    deleteShoppingList(url); // also delete from shopping list
   } catch (error) {
     console.error('Error removing recipe:', error);
   }

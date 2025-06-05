@@ -5,6 +5,7 @@ import axios from "axios";
 import { FiSettings, FiHeart, FiBookmark, FiUser, FiBarChart2, FiLogOut, FiExternalLink, FiTrash2, FiShoppingCart, FiPlus, FiEdit3, FiCheck, FiX  } from "react-icons/fi";
 
 
+
 const Dashboard = () => {
   const { user, logout } = useAuth();
   const [userData, setUserData] = useState(null);
@@ -389,10 +390,35 @@ const SavedItemsTab = ({ userData }) => {
         data: { url }
       });
       setSavedRecipes(savedRecipes.filter(recipe => recipe.link !== url));
+      deleteShoppingList(url); // Call to delete shopping list item
     } catch (err) {
       console.error('Error removing Saved:', err);
     }
   };
+
+  const deleteShoppingList = async (recipeUrl) => {
+  const token = localStorage.getItem("token");
+
+  if (!recipeUrl) {
+    console.error("Recipe URL is required to delete shopping list.");
+    return;
+  }
+
+  try {
+    const res = await axios.delete(
+      "http://localhost:5000/api/list", // assuming this is your delete endpoint
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        data: { recipeId: recipeUrl }, // DELETE with a body requires 'data' in axios
+      }
+    );
+
+  } catch (error) {
+    console.error("Failed to delete shopping list item:", error);
+  }
+};
 
   return (
     <div className="p-6">
@@ -548,12 +574,14 @@ const FavoritesTab = ({ userData }) => {
 };
 
 
+
 const ShoppingTab = () => {
   const [items, setItems] = useState([]);
-  const [comment, setComment] = useState("");
   const [loading, setLoading] = useState(false);
+
   const [editingId, setEditingId] = useState(null);
   const [editComment, setEditComment] = useState("");
+  const [editIngredientsText, setEditIngredientsText] = useState("");
 
   const token = localStorage.getItem("token");
 
@@ -575,128 +603,166 @@ const ShoppingTab = () => {
     }
   };
 
-  const addItem = async () => {
-    if (!comment.trim()) return;
-    try {
-      const res = await axios.post(
-        "http://localhost:5000/api/list",
-        { comment },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setItems([res.data, ...items]);
-      setComment("");
-    } catch (err) {
-      console.error("Failed to add item:", err);
-    }
+  // Parse ingredients but ignore quantities; only keep names
+  const parseIngredients = (text) => {
+    return text
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0)
+      .map((line) => ({ name: line, quantity: "" }));
   };
 
-  const deleteItem = async (id) => {
-    try {
-      await axios.delete(`http://localhost:5000/api/list/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setItems(items.filter((item) => item._id !== id));
-    } catch (err) {
-      console.error("Failed to delete item:", err);
-    }
-  };
+  // Convert ingredients array back to multiline text (only names)
+  const ingredientsToText = (ingredients) =>
+    ingredients
+      .map((ing) => ing.name)
+      .join("\n");
 
   const updateItem = async (id) => {
-    if (!editComment.trim()) return;
+    if (!editComment.trim()) {
+      alert("Comment cannot be empty");
+      return;
+    }
+    const ingredients = parseIngredients(editIngredientsText);
+    if (ingredients.length === 0) {
+      alert("Please enter at least one ingredient");
+      return;
+    }
+
+    // Find the existing item to get its recipeId
+    const existingItem = items.find(item => item._id === id);
+    const recipeId = "manual-entry";
+
+    const payload = {
+      comment: editComment,
+      ingredients,
+      recipeId,  // use existing item's recipeId here
+    };
+
     try {
-      const res = await axios.put(
-        `http://localhost:5000/api/list/${id}`,
-        { comment: editComment },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await axios.put(`http://localhost:5000/api/list/${id}`, payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       setItems(items.map((item) => (item._id === id ? res.data : item)));
       setEditingId(null);
       setEditComment("");
+      setEditIngredientsText("");
     } catch (err) {
       console.error("Failed to update item:", err);
     }
   };
 
+  const deleteItem = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this item?")) return;
+
+    try {
+      await axios.delete(`http://localhost:5000/api/list/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setItems(items.filter(item => item._id !== id));
+    } catch (err) {
+      console.error("Failed to delete item:", err);
+    }
+  };
+
   return (
     <div className="p-6 max-w-3xl mx-auto">
-      <h2 className="text-2xl font-bold text-gray-800 mb-4">Shopping List</h2>
-
-      {/* Add new item */}
-      <div className="flex items-center gap-2 mb-6">
-        <input
-          type="text"
-          value={comment}
-          onChange={(e) => setComment(e.target.value)}
-          placeholder="Add a new item..."
-          className="flex-grow p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-        />
-        <button
-          onClick={addItem}
-          className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition"
-        >
-          <FiPlus />
-        </button>
-      </div>
+      <h2 className="text-3xl font-extrabold text-gray-900 mb-6 border-b-2 pb-2">
+        My Shopping List
+      </h2>
 
       {loading ? (
         <div className="flex justify-center py-10">
-          <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-purple-500"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-purple-600"></div>
         </div>
       ) : items.length === 0 ? (
-        <p className="text-gray-600 text-center">No shopping items yet.</p>
+        <p className="text-gray-500 text-center text-lg mt-10">No shopping items available.</p>
       ) : (
-        <ul className="space-y-4">
+        <ul className="space-y-6">
           {items.map((item) => (
             <li
               key={item._id}
-              className="flex items-center justify-between bg-white shadow p-4 rounded-lg"
+              className="bg-white rounded-xl shadow-md p-6 hover:shadow-lg transition-shadow"
             >
               {editingId === item._id ? (
-                <div className="flex flex-grow items-center gap-2">
+                <>
+                  <label className="block mb-2 font-semibold text-gray-700">Edit Comment:</label>
                   <input
                     type="text"
                     value={editComment}
                     onChange={(e) => setEditComment(e.target.value)}
-                    className="flex-grow border border-gray-300 rounded px-2 py-1"
+                    className="w-full p-3 border border-gray-300 rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder="Edit comment"
                   />
-                  <button
-                    onClick={() => updateItem(item._id)}
-                    className="text-green-600 hover:text-green-800"
-                  >
-                    <FiCheck />
-                  </button>
-                  <button
-                    onClick={() => {
-                      setEditingId(null);
-                      setEditComment("");
-                    }}
-                    className="text-gray-500 hover:text-gray-700"
-                  >
-                    <FiX />
-                  </button>
-                </div>
-              ) : (
-                <div className="flex-grow">{item.comment}</div>
-              )}
 
-              {editingId !== item._id && (
-                <div className="flex items-center gap-2 ml-4">
-                  <button
-                    onClick={() => {
-                      setEditingId(item._id);
-                      setEditComment(item.comment);
-                    }}
-                    className="text-blue-500 hover:text-blue-700"
-                  >
-                    <FiEdit3 />
-                  </button>
-                  <button
-                    onClick={() => deleteItem(item._id)}
-                    className="text-red-500 hover:text-red-700"
-                  >
-                    <FiTrash2 />
-                  </button>
-                </div>
+                  <label className="block mb-2 font-semibold text-gray-700">
+                    Edit Ingredients (one per line):
+                  </label>
+                  <textarea
+                    rows={5}
+                    value={editIngredientsText}
+                    onChange={(e) => setEditIngredientsText(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-lg mb-4 resize-none focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder="e.g., flour"
+                  />
+
+                  <div className="flex gap-4">
+                    <button
+                      onClick={() => updateItem(item._id)}
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                      title="Save"
+                    >
+                      <FiCheck size={20} />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEditingId(null);
+                        setEditComment("");
+                        setEditIngredientsText("");
+                      }}
+                      className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition"
+                      title="Cancel"
+                    >
+                      <FiX size={20} />
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <h3 className="text-xl font-semibold text-purple-700 mb-3 border-b border-purple-300 pb-1">
+                    {item.comment || "No Comment"}
+                  </h3>
+                  <ul className="list-disc list-inside space-y-1 mb-4 text-gray-800">
+                    {item.ingredients.map((ing, i) => (
+                      <li key={i} className="pl-2 list-disc text-gray-800">
+                        {ing.name}
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="flex items-center gap-4">
+                    <button
+                      onClick={() => {
+                        setEditingId(item._id);
+                        setEditComment(item.comment);
+                        setEditIngredientsText(ingredientsToText(item.ingredients));
+                      }}
+                      className="text-purple-600 hover:text-purple-800 font-semibold"
+                      title="Edit"
+                    >
+                      <FiEdit3 size={22} />
+                    </button>
+
+                    {item.recipeId === "manual-entry" && (
+                      <button
+                        onClick={() => deleteItem(item._id)}
+                        className="text-red-600 hover:text-red-800 font-semibold"
+                        title="Delete"
+                      >
+                        <FiTrash2 size={22} />
+                      </button>
+                    )}
+                  </div>
+                </>
               )}
             </li>
           ))}
@@ -705,6 +771,8 @@ const ShoppingTab = () => {
     </div>
   );
 };
+
+
 
 
 const SettingsTab = ({ userData }) => {
