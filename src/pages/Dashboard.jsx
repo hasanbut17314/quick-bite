@@ -11,6 +11,7 @@ const Dashboard = () => {
   const [userData, setUserData] = useState(null);
   const [activeTab, setActiveTab] = useState("overview");
   const [loading, setLoading] = useState(true);
+  const [imgUrl, setImgUrl] = useState(null);
 
   const navigate = useNavigate();
   
@@ -43,23 +44,35 @@ const Dashboard = () => {
   if (!handlelogged) {
     navigate("/login");
   }
- useEffect(() => {
+
+
+  useEffect(() => {
   const fetchUserData = async () => {
     try {
       const token = localStorage.getItem('token');
+
       if (!token) {
         console.error("No token found in localStorage");
         return;
       }
 
-      const response = await axios.get(`http://localhost:5000/api/users/${user._id}`, {
+      const user = JSON.parse(localStorage.getItem("user")); // assuming user._id is needed
+      if (!user || !user.id) {
+        console.error("No valid user found in localStorage");
+        return;
+      }
+
+      const response = await axios.get(`http://localhost:5000/api/users/${user.id}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
 
       setUserData(response.data);
-      localStorage.setItem("user", JSON.stringify(response.data));
+      if(response.data.image) {
+        setImgUrl(response.data.image);
+      }
+      localStorage.setItem("userData", JSON.stringify(response.data));
     } catch (error) {
       console.error("Error fetching user data:", error);
     } finally {
@@ -67,14 +80,9 @@ const Dashboard = () => {
     }
   };
 
-  if (user?._id) {
-    fetchUserData();
-  }
-  else
-  {
-    setLoading(false);
-  }
-}, [user]);
+  fetchUserData();
+}, [])
+
 
   const handleImageUpload = async (event) => {
     const file = event.target.files[0];
@@ -85,16 +93,17 @@ const Dashboard = () => {
 
     try {
       const res = await axios.put(
-        `http://localhost:5000/api/users/${user?._id}/upload`,
+        `http://localhost:5000/api/users/${userData?._id}/upload`,
         formData,
         { headers: { "Content-Type": "multipart/form-data" } }
       );
 
-      if (res.data.profileImage) {
-        const imagePath = `/uploads/${res.data.profileImage}`;
-        const updatedUser = { ...userData, profileImage: imagePath };
+      if (res.data.image) {
+        const imagePath = `${res.data.image}`;
+        const updatedUser = { ...userData, image: imagePath };
         setUserData(updatedUser);
-        localStorage.setItem("user", JSON.stringify(updatedUser));
+      setImgUrl(updatedUser.image);
+        localStorage.setItem("userData", JSON.stringify(updatedUser));
       }
     } catch (err) {
       console.error("Error uploading image", err);
@@ -122,7 +131,7 @@ const Dashboard = () => {
               <label className="relative">
                 <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
                 <img
-                  src={userData?.profileImage ? `http://localhost:5000${userData.profileImage}` : "https://ui-avatars.com/api/?name=" + (userData?.name || "User") + "&background=random"}
+                  src={imgUrl ? `${imgUrl}` : "https://ui-avatars.com/api/?name=" + (userData?.name || "User") + "&background=random"}
                   alt="Profile"
                   className="w-20 h-20 rounded-full object-cover border-4 border-purple-300 cursor-pointer hover:opacity-90 transition"
                 />
