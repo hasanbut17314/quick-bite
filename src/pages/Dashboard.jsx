@@ -809,17 +809,17 @@ const SettingsTab = ({ userData }) => {
   const { user } = useAuth();
 
   const dietaryOptions = [
-    'Vegetarian', 'Vegan', 'Gluten-Free', 'Dairy-Free', 
-    'Nut-Free', 'Keto', 'Paleo', 'Low-Carb', 'Halal', 'Kosher'
+    "Vegetarian", "Vegan", "Gluten-Free", "Dairy-Free",
+    "Nut-Free", "Keto", "Paleo", "Low-Carb", "Halal", "Kosher"
   ];
 
   const cuisineOptions = [
-    'American', 'Italian', 'Mexican', 'Chinese', 
-    'Japanese', 'Indian', 'Mediterranean', 'French', 'Thai'
+    "American", "Italian", "Mexican", "Chinese",
+    "Japanese", "Indian", "Mediterranean", "French", "Thai"
   ];
 
   const mealTypeOptions = [
-    'Breakfast', 'Lunch', 'Dinner', 'Snack', 'Dessert'
+    "Breakfast", "Lunch", "Dinner", "Snack", "Dessert"
   ];
 
   useEffect(() => {
@@ -851,7 +851,7 @@ const SettingsTab = ({ userData }) => {
     const newValues = currentValues.includes(value)
       ? currentValues.filter(item => item !== value)
       : [...currentValues, value];
-    
+
     setFormData(prev => ({
       ...prev,
       preferences: {
@@ -861,29 +861,29 @@ const SettingsTab = ({ userData }) => {
     }));
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
     setIsLoading(true);
     setSuccessMessage("");
-    
-    try {
-      const response = await axios.put(
-        `http://localhost:5000/api/users/${user._id}`,
-        formData,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`
-          }
-        }
-      );
 
-      const updatedUser = { ...userData, ...response.data };
-      localStorage.setItem("user", JSON.stringify(updatedUser));
-      
-      setSuccessMessage("Settings saved successfully!");
+    const payload = {
+      name: formData.name,
+      email: formData.email,
+      preferences: {
+        notifications: formData.preferences?.notifications || false,
+        darkMode: formData.preferences?.darkMode || false,
+        dietaryRestrictions: formData.preferences?.dietaryRestrictions || [],
+        favoriteCuisines: formData.preferences?.favoriteCuisines || [],
+        mealTypes: formData.preferences?.mealTypes || []
+      }
+    };
+
+    try {
+      console.log("Payload to send:", payload);
+      setSuccessMessage("Settings simulated successfully (check console).");
       setTimeout(() => setSuccessMessage(""), 3000);
     } catch (err) {
-      console.error("Error saving settings:", err);
+      console.error("Simulated error:", err);
     } finally {
       setIsLoading(false);
     }
@@ -892,7 +892,7 @@ const SettingsTab = ({ userData }) => {
   return (
     <div className="p-6">
       <h2 className="text-2xl font-bold text-gray-800 mb-6">Settings</h2>
-      
+
       {successMessage && (
         <div className="mb-6 p-3 bg-green-100 text-green-700 rounded-lg">
           {successMessage}
@@ -931,13 +931,15 @@ const SettingsTab = ({ userData }) => {
                 type="checkbox"
                 id="notifications"
                 checked={formData.preferences?.notifications || false}
-                onChange={() => setFormData(prev => ({
-                  ...prev,
-                  preferences: {
-                    ...prev.preferences,
-                    notifications: !prev.preferences?.notifications
-                  }
-                }))}
+                onChange={() =>
+                  setFormData(prev => ({
+                    ...prev,
+                    preferences: {
+                      ...prev.preferences,
+                      notifications: !prev.preferences?.notifications
+                    }
+                  }))
+                }
                 className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
               />
               <label htmlFor="notifications" className="ml-2 block text-sm text-gray-700">
@@ -949,13 +951,15 @@ const SettingsTab = ({ userData }) => {
                 type="checkbox"
                 id="darkMode"
                 checked={formData.preferences?.darkMode || false}
-                onChange={() => setFormData(prev => ({
-                  ...prev,
-                  preferences: {
-                    ...prev.preferences,
-                    darkMode: !prev.preferences?.darkMode
-                  }
-                }))}
+                onChange={() =>
+                  setFormData(prev => ({
+                    ...prev,
+                    preferences: {
+                      ...prev.preferences,
+                      darkMode: !prev.preferences?.darkMode
+                    }
+                  }))
+                }
                 className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
               />
               <label htmlFor="darkMode" className="ml-2 block text-sm text-gray-700">
@@ -974,7 +978,7 @@ const SettingsTab = ({ userData }) => {
                   type="checkbox"
                   id={`diet-${option}`}
                   checked={formData.preferences?.dietaryRestrictions?.includes(option) || false}
-                  onChange={() => handlePreferenceChange('dietaryRestrictions', option)}
+                  onChange={() => handlePreferenceChange("dietaryRestrictions", option)}
                   className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
                 />
                 <label htmlFor={`diet-${option}`} className="ml-2 block text-sm text-gray-700">
@@ -994,7 +998,7 @@ const SettingsTab = ({ userData }) => {
                   type="checkbox"
                   id={`cuisine-${option}`}
                   checked={formData.preferences?.favoriteCuisines?.includes(option) || false}
-                  onChange={() => handlePreferenceChange('favoriteCuisines', option)}
+                  onChange={() => handlePreferenceChange("favoriteCuisines", option)}
                   className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
                 />
                 <label htmlFor={`cuisine-${option}`} className="ml-2 block text-sm text-gray-700">
@@ -1014,7 +1018,7 @@ const SettingsTab = ({ userData }) => {
                   type="checkbox"
                   id={`meal-${option}`}
                   checked={formData.preferences?.mealTypes?.includes(option) || false}
-                  onChange={() => handlePreferenceChange('mealTypes', option)}
+                  onChange={() => handlePreferenceChange("mealTypes", option)}
                   className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
                 />
                 <label htmlFor={`meal-${option}`} className="ml-2 block text-sm text-gray-700">
