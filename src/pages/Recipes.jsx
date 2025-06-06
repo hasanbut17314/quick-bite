@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { FiSearch, FiClock, FiShare2, FiBookmark, FiHeart } from 'react-icons/fi';
 import Navbar from "../components/Navbar";
@@ -19,8 +19,8 @@ const Recipes = ({ isDarkMode, toggleDarkMode }) => {
   const [showFilters, setShowFilters] = useState(false);
   const [searched, setSearched] = useState(false);
   const [savedRecipes, setSavedRecipes] = useState([]);
+  const [favRecipes, setFavRecipes] = useState([]);
 
-  // Filter options
   const dietOptions = [
     { value: 'balanced', label: 'Balanced' },
     { value: 'high-protein', label: 'High Protein' },
@@ -62,17 +62,14 @@ const Recipes = ({ isDarkMode, toggleDarkMode }) => {
     { value: 'Sweets', label: 'Sweets' }
   ];
 
-  // Get API credentials from .env
   const edamamAppId = 'b8e6b112';
-  const edamamAppKey = '9eac36ceba817b8386398fe7376d8019'
-  const spoonacularApiKey = 'a927b1afa7d442d6804d75615efa1099'
+  const edamamAppKey = '9eac36ceba817b8386398fe7376d8019';
+  const spoonacularApiKey = 'a927b1afa7d442d6804d75615efa1099';
 
-  // Fetch recipes from Edamam API first, and if none found, fallback to Spoonacular API
   const fetchRecipes = async () => {
     setLoading(true);
     setSearched(true);
     try {
-      // --- Edamam API Call ---
       const edamamParams = {
         type: 'public',
         q: query || 'recipe',
@@ -90,26 +87,24 @@ const Recipes = ({ isDarkMode, toggleDarkMode }) => {
       const edamamResponse = await axios.get('https://api.edamam.com/api/recipes/v2', { params: edamamParams });
       const edamamResults = edamamResponse.data.hits || [];
 
-      // --- Spoonacular API Call as Fallback ---
       if (edamamResults.length === 0) {
         const spoonacularParams = {
           apiKey: spoonacularApiKey,
           query: query || 'recipe',
-          addRecipeInformation: true, // for extra details like readyInMinutes
-          addRecipeNutrition: true    // for nutrition info if available
+          addRecipeInformation: true,
+          addRecipeNutrition: true
         };
 
-        // Map filter parameters to Spoonacular's parameters
         if (filters.diet.length > 0) spoonacularParams.diet = filters.diet.join(',');
         if (filters.cuisineType.length > 0) spoonacularParams.cuisine = filters.cuisineType.join(',');
         if (filters.mealType.length > 0) spoonacularParams.type = filters.mealType.join(',');
-       
+
         if (filters.calories) {
           const parts = filters.calories.split('-');
           spoonacularParams.maxCalories = parts[1] ? parts[1] : parts[0];
         }
+
         if (filters.time) {
-          
           if (filters.time.includes('+')) {
             spoonacularParams.maxReadyTime = filters.time.replace('+', '');
           } else {
@@ -121,7 +116,6 @@ const Recipes = ({ isDarkMode, toggleDarkMode }) => {
         const spoonacularResponse = await axios.get('https://api.spoonacular.com/recipes/complexSearch', { params: spoonacularParams });
         const spoonacularResults = spoonacularResponse.data.results || [];
 
-        // Map Spoonacular response to a similar structure as Edamam's response:
         const mappedSpoonacularResults = spoonacularResults.map(recipe => ({
           recipe: {
             uri: recipe.id.toString(),
@@ -129,7 +123,6 @@ const Recipes = ({ isDarkMode, toggleDarkMode }) => {
             image: recipe.image,
             url: recipe.sourceUrl || `https://spoonacular.com/recipes/${recipe.title.replace(/\s+/g, '-').toLowerCase()}-${recipe.id}`,
             totalTime: recipe.readyInMinutes || "N/A",
-            // Spoonacular nutrition may be nested; using a fallback value of 0 if not available
             calories: recipe.nutrition && recipe.nutrition.nutrients
               ? Math.round(recipe.nutrition.nutrients.find(n => n.title === 'Calories')?.amount || 0)
               : 0
@@ -145,39 +138,240 @@ const Recipes = ({ isDarkMode, toggleDarkMode }) => {
       setRecipes([]);
     } finally {
       setLoading(false);
+      searchActivity(query);
     }
   };
 
-  // Save recipe to user's saved recipes
+  useEffect(() => {
+    const fetchSavedRecipes = async () => {
+      try {
+        const response = await axios.get('http://localhost:5000/api/savedrecipes', {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        setSavedRecipes(response.data.map(recipe => recipe.link));
+      } catch (error) {
+        console.error('Error fetching saved recipes:', error);
+      }
+    };
+
+    const fetchFavRecipes = async () => {
+      try {
+        const response = await axios.get('http://localhost:5000/api/favorites', {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        setFavRecipes(response.data.map(recipe => recipe.link));
+      } catch (error) {
+        console.error('Error fetching favorite recipes:', error);
+      }
+    };
+
+    const handlelogged = localStorage.getItem("token");
+  if (handlelogged) {
+    fetchSavedRecipes();
+    fetchFavRecipes();
+  }
+  }, [])
+  
+
   const saveRecipe = async (recipe) => {
-    try {
-      await axios.post('http://localhost:5000/api/recipes/save', { recipe }, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      setSavedRecipes([...savedRecipes, recipe.uri]);
-    } catch (error) {
-      console.error('Error saving recipe:', error);
+  try {
+    if(!localStorage.getItem('token')) {
+      alert('Please log in to save recipes.');
+      return;
     }
+    // Extract the needed fields
+    const recipeData = {
+      title: recipe.label,
+      image: recipe.image,
+      calories: recipe.calories,
+      time: recipe.totalTime,
+      link: recipe.url,
+    };
+
+    await axios.post('http://localhost:5000/api/savedrecipes', recipeData, {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('token')}`,
+      },
+    });
+
+    setSavedRecipes([...savedRecipes, recipe.url]); // keep recipe.uri if you want to track saved recipes by uri
+    createShoppingList(recipe);
+
+  } catch (error) {
+    console.error('Error saving recipe:', error);
+  }
+};
+
+
+const createShoppingList = async (recipe) => {
+  const token = localStorage.getItem("token");
+
+  if (!recipe.ingredients || recipe.ingredients.length === 0) {
+    console.error("No ingredients found in recipe.");
+    return;
+  }
+
+  // Prepare ingredients array as-is, or map if you want only specific fields
+  const ingredients = recipe.ingredients.map(({ text, quantity }) => ({
+    name: text,
+    quantity,
+  }));
+
+  const payload = {
+    recipeId: recipe.url,            // assuming your recipe has _id field
+    comment: `Shopping list for recipe: ${recipe.label || "Unnamed"}`, // optional comment
+    ingredients,
   };
 
-  // Remove recipe from saved recipes
-  const removeRecipe = async (uri) => {
-    try {
-      await axios.delete(`http://localhost:5000/api/recipes/remove/${encodeURIComponent(uri)}`, {
+  try {
+    const res = await axios.post(
+      "http://localhost:5000/api/list",
+      payload,
+      {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      setSavedRecipes(savedRecipes.filter(id => id !== uri));
-    } catch (error) {
-      console.error('Error removing recipe:', error);
-    }
-  };
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+  } catch (error) {
+    console.error("Failed to create shopping list item:", error);
+  }
+};
 
-  // Check if recipe is saved
-  const isRecipeSaved = (uri) => savedRecipes.includes(uri);
+
+const deleteShoppingList = async (recipeUrl) => {
+  const token = localStorage.getItem("token");
+
+  if (!recipeUrl) {
+    console.error("Recipe URL is required to delete shopping list.");
+    return;
+  }
+
+  try {
+    const res = await axios.delete(
+      "http://localhost:5000/api/list", // assuming this is your delete endpoint
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        data: { recipeId: recipeUrl }, // DELETE with a body requires 'data' in axios
+      }
+    );
+
+  } catch (error) {
+    console.error("Failed to delete shopping list item:", error);
+  }
+};
+
+
+
+const searchActivity = async (title) => {
+  try {
+    if(!localStorage.getItem('token')) {
+     return;  
+    }
+    await axios.post(
+      'http://localhost:5000/api/activity',
+      { comment: `search recipe: ${title}` },  // request body
+      {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error saving activity:', error);
+  }
+};
+
+
+const saveActivity = async (title) => {
+  try {
+    if(!localStorage.getItem('token')) {
+     return;  
+    }
+    await axios.post(
+      'http://localhost:5000/api/activity',
+      { comment: `viewed recipe: ${title}` },  // request body
+      {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error saving activity:', error);
+  }
+};
+
+
+ const FavRecipe = async (recipe) => {
+  try {
+    if(!localStorage.getItem('token')) {
+      alert('Please log in to Faviroute recipes.');
+      return;
+    }
+    // Extract the needed fields
+    const recipeData = {
+      title: recipe.label,
+      image: recipe.image,
+      calories: recipe.calories,
+      time: recipe.totalTime,
+      link: recipe.url,
+    };
+    
+    await axios.post('http://localhost:5000/api/favorites', recipeData, {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('token')}`,
+      },
+    });
+
+    setFavRecipes([...favRecipes, recipe.url]); // keep recipe.uri if you want to track saved recipes by uri
+
+  } catch (error) {
+    console.error('Error saving recipe:', error);
+  }
+};
+
+
+
+  const removeRecipe = async (url) => {
+  try {
+    await axios.delete('http://localhost:5000/api/savedrecipes', {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('token')}`
+      },
+      data: { url }  // send URL in body properly
+    });
+    setSavedRecipes(savedRecipes.filter(id => id !== url));
+    deleteShoppingList(url); // also delete from shopping list
+  } catch (error) {
+    console.error('Error removing recipe:', error);
+  }
+};
+
+
+  const removeFav = async (url) => {
+  try {
+    await axios.delete('http://localhost:5000/api/favorites', {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('token')}`
+      },
+      data: { url }  // send URL in body properly
+    });
+    setFavRecipes(favRecipes.filter(id => id !== url));
+  } catch (error) {
+    console.error('Error removing recipe:', error);
+  }
+};
+
+
+  const isRecipeSaved = (url) => savedRecipes.includes(url);
+  const isRecipeFav = (url) => favRecipes.includes(url);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -191,8 +385,7 @@ const Recipes = ({ isDarkMode, toggleDarkMode }) => {
     }));
   };
 
-  const inputClasses =
-    "w-full p-3 border rounded-lg focus:ring-2 transition duration-300 " +
+  const inputClasses = "w-full p-3 border rounded-lg focus:ring-2 transition duration-300 " +
     (isDarkMode
       ? "bg-gray-800 border-gray-700 text-white focus:ring-purple-500"
       : "bg-white border-gray-200 text-gray-800 focus:ring-purple-500");
@@ -204,13 +397,12 @@ const Recipes = ({ isDarkMode, toggleDarkMode }) => {
     <div className={`min-h-screen flex flex-col ${sectionClasses}`}>
       <Navbar isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} />
       <main className="flex-grow container mx-auto mt-12 px-4 py-10">
-        {/* Hero */}
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold mb-4">Discover Delicious Recipes</h1>
           <p className="text-xl text-gray-400 max-w-2xl mx-auto">Find the perfect recipe for any occasion</p>
         </div>
 
-        {/* Search */}
+        {/* Search Form */}
         <form onSubmit={handleSubmit} className={`max-w-4xl mx-auto mb-10 p-6 rounded-xl ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
           <div className="relative">
             <input
@@ -315,7 +507,8 @@ const Recipes = ({ isDarkMode, toggleDarkMode }) => {
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                     {recipes.map((recipeData, index) => {
                       const { recipe } = recipeData;
-                      const isSaved = isRecipeSaved(recipe.uri);
+                      const isSaved = isRecipeSaved(recipe.url);
+                      const isFav = isRecipeFav(recipe.url);
 
                       return (
                         <div key={index} className={`${cardClasses} rounded-xl overflow-hidden hover:shadow-2xl transition-shadow relative`}>
@@ -331,18 +524,27 @@ const Recipes = ({ isDarkMode, toggleDarkMode }) => {
                               <a
                                 href={recipe.url}
                                 target="_blank"
+                                onClick={() => saveActivity(recipe.label)}
                                 rel="noopener noreferrer"
                                 className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center"
                               >
                                 View Recipe
                                 <FiShare2 className="ml-2" />
                               </a>
-                              <button
-                                onClick={() => (isSaved ? removeRecipe(recipe.uri) : saveRecipe(recipe))}
-                                className={`p-2 rounded-full ${isSaved ? 'text-red-500' : 'text-gray-400 hover:text-red-500'}`}
-                              >
-                                <FiHeart className={isSaved ? 'fill-current' : ''} />
-                              </button>
+                              <div className="flex space-x-2">
+                                <button
+                                  onClick={() => (isFav ? removeFav(recipe.url) : FavRecipe(recipe))}
+                                  className={`p-2 rounded-full ${isFav ? 'text-red-500' : 'text-gray-400 hover:text-red-500'}`}
+                                >
+                                  <FiHeart className={isFav ? 'fill-current' : ''} />
+                                </button>
+                                <button
+                                  onClick={() => (isSaved ? removeRecipe(recipe.url) : saveRecipe(recipe))}
+                                  className={`p-2 rounded-full ${isSaved ? 'text-yellow-500' : 'text-gray-400 hover:text-yellow-500'}`}
+                                >
+                                  <FiBookmark className={isSaved ? 'fill-current' : ''} />
+                                </button>
+                              </div>
                             </div>
                           </div>
                           {isSaved && (
