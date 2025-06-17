@@ -328,19 +328,16 @@ const OverviewTab = ({ userData }) => {
         <div className="bg-gradient-to-r from-purple-50 to-indigo-50 p-6 rounded-lg border border-gray-100">
           <h3 className="text-lg font-semibold text-gray-700 mb-2">Saved Items</h3>
           <p className="text-3xl font-bold text-purple-600">{savedItemsCount}</p>
-          <p className="text-sm text-gray-500 mt-2">Items you've saved for later</p>
         </div>
 
         <div className="bg-gradient-to-r from-blue-50 to-cyan-50 p-6 rounded-lg border border-gray-100">
           <h3 className="text-lg font-semibold text-gray-700 mb-2">Favorites</h3>
           <p className="text-3xl font-bold text-blue-600">{favoritesCount}</p>
-          <p className="text-sm text-gray-500 mt-2">Your favorite items</p>
         </div>
 
         <div className="bg-gradient-to-r from-green-50 to-teal-50 p-6 rounded-lg border border-gray-100">
           <h3 className="text-lg font-semibold text-gray-700 mb-2">Today's Activity</h3>
           <p className="text-3xl font-bold text-green-600">{todayActivitiesCount}</p>
-          <p className="text-sm text-gray-500 mt-2">Activities done today</p>
         </div>
       </div>
 
