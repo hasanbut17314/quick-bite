@@ -3,6 +3,26 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { FiSettings, FiHeart, FiBookmark, FiUser, FiBarChart2, FiLogOut, FiExternalLink, FiTrash2, FiEdit3, FiCheck, FiX, FiMoon, FiSun, FiPlus, FiSearch  } from "react-icons/fi";
+import { Line } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  LineElement,
+  PointElement,
+  CategoryScale,
+  LinearScale,
+  Tooltip,
+  Legend
+} from 'chart.js';
+
+ChartJS.register(
+  LineElement,
+  PointElement,
+  CategoryScale,
+  LinearScale,
+  Tooltip,
+  Legend
+);
+
 
 const AdminDash = () => {
   const { user, logout } = useAuth();
@@ -270,29 +290,47 @@ const AdminDash = () => {
   );
 };
 
+
+
 const OverviewTab = ({ userData, darkMode }) => {
   const [activities, setActivities] = useState([]);
   const [savedItemsCount, setSavedItemsCount] = useState(0);
-  const [favoritesCount, setFavoritesCount] = useState(0);
+  const [totalUserCount, setTotalUserCount] = useState(0);
   const [todayActivitiesCount, setTodayActivitiesCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [chartData, setChartData] = useState({ labels: [], saved: [], users: [] });
 
   useEffect(() => {
     const fetchOverview = async () => {
       try {
         setLoading(true);
         const token = localStorage.getItem("token");
-        const res = await axios.get("http://localhost:5000/api/activity", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        const data = res.data;
 
-        setSavedItemsCount(data.counts.savedRecipes || 0);
-        setFavoritesCount(data.counts.favorites || 0);
-        setTodayActivitiesCount(data.counts.todayActivitiesCount || 0);
-        setActivities(data.activities || []);
+        const statsRes = await axios.get("http://localhost:5000/api/adminuser/overview", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        setSavedItemsCount(statsRes.data.savedRecipesToday || 0);
+        setTodayActivitiesCount(statsRes.data.activitiesToday || 0);
+        setTotalUserCount(statsRes.data.totalUsers || 0);
+
+        const chartRes = await axios.get("http://localhost:5000/api/adminuser/charts/weekly", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        const { labels, savedRecipes, users } = chartRes.data;
+
+        setChartData({
+          labels,
+          saved: savedRecipes.map(item => item.count),
+          users: users.map(item => item.count),
+        });
+
+        const activityRes = await axios.get("http://localhost:5000/api/adminuser/activities?page=1&limit=10", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        setActivities(activityRes.data.activities || []);
       } catch (err) {
         console.error("Failed to fetch overview data:", err);
       } finally {
@@ -310,38 +348,151 @@ const OverviewTab = ({ userData, darkMode }) => {
       </h2>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className={`${darkMode ? 'bg-gradient-to-r from-purple-900 to-indigo-900' : 'bg-gradient-to-r from-purple-50 to-indigo-50'} p-6 rounded-lg border ${darkMode ? 'border-gray-700' : 'border-gray-100'}`}>
-          <h3 className={`text-lg font-semibold ${darkMode ? 'text-gray-200' : 'text-gray-700'} mb-2`}>Saved Items</h3>
-          <p className="text-3xl font-bold text-purple-600">{savedItemsCount}</p>
-          
+        <div className={`${darkMode ? 'bg-gradient-to-r from-blue-900 to-cyan-900' : 'bg-gradient-to-r from-blue-50 to-cyan-50'} p-6 rounded-lg border ${darkMode ? 'border-gray-700' : 'border-gray-100'}`}>
+          <h3 className={`text-lg font-semibold ${darkMode ? 'text-gray-200' : 'text-gray-700'} mb-2`}>Total Users</h3>
+          <p className="text-3xl font-bold text-blue-600">{totalUserCount}</p>
         </div>
 
-        <div className={`${darkMode ? 'bg-gradient-to-r from-blue-900 to-cyan-900' : 'bg-gradient-to-r from-blue-50 to-cyan-50'} p-6 rounded-lg border ${darkMode ? 'border-gray-700' : 'border-gray-100'}`}>
-          <h3 className={`text-lg font-semibold ${darkMode ? 'text-gray-200' : 'text-gray-700'} mb-2`}>Favorites</h3>
-          <p className="text-3xl font-bold text-blue-600">{favoritesCount}</p>
-          
+        <div className={`${darkMode ? 'bg-gradient-to-r from-purple-900 to-indigo-900' : 'bg-gradient-to-r from-purple-50 to-indigo-50'} p-6 rounded-lg border ${darkMode ? 'border-gray-700' : 'border-gray-100'}`}>
+          <h3 className={`text-lg font-semibold ${darkMode ? 'text-gray-200' : 'text-gray-700'} mb-2`}>Saved Items Today</h3>
+          <p className="text-3xl font-bold text-purple-600">{savedItemsCount}</p>
         </div>
 
         <div className={`${darkMode ? 'bg-gradient-to-r from-green-900 to-teal-900' : 'bg-gradient-to-r from-green-50 to-teal-50'} p-6 rounded-lg border ${darkMode ? 'border-gray-700' : 'border-gray-100'}`}>
           <h3 className={`text-lg font-semibold ${darkMode ? 'text-gray-200' : 'text-gray-700'} mb-2`}>Today's Activity</h3>
           <p className="text-3xl font-bold text-green-600">{todayActivitiesCount}</p>
-          
         </div>
       </div>
 
+      {/* CHARTS SECTION */}
+      <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'}  rounded-lg border ${darkMode ? 'border-gray-700' : 'border-gray-200'} mb-8`}>
+        <h3 className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+          Weekly Trends
+        </h3>
+
+        <div className="grid md:grid-cols-2 w-90">
+          <div>
+            <h4 className={`mb-2 font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Saved Recipes</h4>
+            {chartData.labels.length > 0 && (
+              <Line
+                data={{
+                  labels: chartData.labels,
+                  datasets: [
+                    {
+                      label: "Saved Recipes",
+                      data: chartData.saved,
+                      borderColor: "#8b5cf6",
+                      backgroundColor: "rgba(139, 92, 246, 0.1)",
+                      tension: 0.4,
+                      pointBackgroundColor: "#8b5cf6",
+                      pointRadius: 4,
+                    },
+                  ],
+                }}
+                options={{
+                  responsive: true,
+                  plugins: {
+                    legend: {
+                      labels: {
+                        color: darkMode ? "#fff" : "#000",
+                      },
+                    },
+                  },
+                  scales: {
+                    x: {
+                      ticks: {
+                        color: darkMode ? "#d1d5db" : "#374151",
+                      },
+                      grid: {
+                        color: darkMode ? "#374151" : "#f3f4f6",
+                      },
+                    },
+                    y: {
+                      beginAtZero: true,
+                      ticks: {
+                        color: darkMode ? "#d1d5db" : "#374151",
+                      },
+                      grid: {
+                        color: darkMode ? "#374151" : "#f3f4f6",
+                      },
+                    },
+                  },
+                }}
+                height={200}
+              />
+            )}
+          </div>
+
+          <div>
+            <h4 className={`mb-2 font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>New Users</h4>
+            {chartData.labels.length > 0 && (
+              <Line
+                data={{
+                  labels: chartData.labels,
+                  datasets: [
+                    {
+                      label: "New Users",
+                      data: chartData.users,
+                      borderColor: "#10b981",
+                      backgroundColor: "rgba(16, 185, 129, 0.1)",
+                      tension: 0.4,
+                      pointBackgroundColor: "#10b981",
+                      pointRadius: 4,
+                    },
+                  ],
+                }}
+                options={{
+                  responsive: true,
+                  plugins: {
+                    legend: {
+                      labels: {
+                        color: darkMode ? "#fff" : "#000",
+                      },
+                    },
+                  },
+                  scales: {
+                    x: {
+                      ticks: {
+                        color: darkMode ? "#d1d5db" : "#374151",
+                      },
+                      grid: {
+                        color: darkMode ? "#374151" : "#f3f4f6",
+                      },
+                    },
+                    y: {
+                      beginAtZero: true,
+                      ticks: {
+                        color: darkMode ? "#d1d5db" : "#374151",
+                      },
+                      grid: {
+                        color: darkMode ? "#374151" : "#f3f4f6",
+                      },
+                    },
+                  },
+                }}
+                height={200}
+              />
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* RECENT ACTIVITY */}
       <div className={`${darkMode ? 'bg-gray-700' : 'bg-white'} border ${darkMode ? 'border-gray-600' : 'border-gray-200'} rounded-lg p-3`}>
         <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'} mb-4`}>Recent Activity</h3>
         {loading ? (
           <p className={darkMode ? 'text-gray-300' : 'text-gray-600'}>Loading activities...</p>
         ) : activities.length > 0 ? (
           <ul className="space-y-4">
-            {activities.slice(0, 10).map((activity) => (
+            {activities.map((activity) => (
               <li key={activity._id} className="flex items-start">
                 <div className={`${darkMode ? 'bg-purple-800' : 'bg-purple-100'} p-2 rounded-full mr-3`}>
                   <FiBookmark className="text-purple-600" />
                 </div>
                 <div>
-                  <p className={darkMode ? 'text-gray-200' : 'text-gray-800'}>{userData.name} {activity.comment}</p>
+                  <p className={darkMode ? 'text-gray-200' : 'text-gray-800'}>
+                    {activity.userId.name} {activity.comment}
+                  </p>
                   <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                     {new Date(activity.createdAt).toLocaleString()}
                   </p>
@@ -358,6 +509,7 @@ const OverviewTab = ({ userData, darkMode }) => {
     </div>
   );
 };
+
 
 const UsersTab = ({ userData, darkMode }) => {
   const [users, setUsers] = useState([]);
