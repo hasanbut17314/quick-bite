@@ -304,22 +304,19 @@ const OverviewTab = ({ userData, isDarkMode }) => {
       </h2>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className={`${isDarkMode ? 'bg-gray-600' : 'bg-gradient-to-r from-purple-50 to-indigo-50'} p-6 rounded-lg border ${isDarkMode ? 'border-gray-500' : 'border-gray-100'}`}>
-          <h3 className={`text-lg font-semibold mb-2 ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>Saved Items</h3>
-          <p className={`text-3xl font-bold ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`}>{savedItemsCount}</p>
-          <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} mt-2`}>Items you've saved for later</p>
+        <div className="bg-gradient-to-r from-purple-50 to-indigo-50 p-6 rounded-lg border border-gray-100">
+          <h3 className="text-lg font-semibold text-gray-700 mb-2">Saved Items</h3>
+          <p className="text-3xl font-bold text-purple-600">{savedItemsCount}</p>
         </div>
 
-        <div className={`${isDarkMode ? 'bg-gray-600' : 'bg-gradient-to-r from-blue-50 to-cyan-50'} p-6 rounded-lg border ${isDarkMode ? 'border-gray-500' : 'border-gray-100'}`}>
-          <h3 className={`text-lg font-semibold mb-2 ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>Favorites</h3>
-          <p className={`text-3xl font-bold ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>{favoritesCount}</p>
-          <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} mt-2`}>Your favorite items</p>
+        <div className="bg-gradient-to-r from-blue-50 to-cyan-50 p-6 rounded-lg border border-gray-100">
+          <h3 className="text-lg font-semibold text-gray-700 mb-2">Favorites</h3>
+          <p className="text-3xl font-bold text-blue-600">{favoritesCount}</p>
         </div>
 
-        <div className={`${isDarkMode ? 'bg-gray-600' : 'bg-gradient-to-r from-green-50 to-teal-50'} p-6 rounded-lg border ${isDarkMode ? 'border-gray-500' : 'border-gray-100'}`}>
-          <h3 className={`text-lg font-semibold mb-2 ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>Today's Activity</h3>
-          <p className={`text-3xl font-bold ${isDarkMode ? 'text-green-400' : 'text-green-600'}`}>{todayActivitiesCount}</p>
-          <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} mt-2`}>Activities done today</p>
+        <div className="bg-gradient-to-r from-green-50 to-teal-50 p-6 rounded-lg border border-gray-100">
+          <h3 className="text-lg font-semibold text-gray-700 mb-2">Today's Activity</h3>
+          <p className="text-3xl font-bold text-green-600">{todayActivitiesCount}</p>
         </div>
       </div>
 

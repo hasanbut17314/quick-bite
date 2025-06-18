@@ -38,6 +38,7 @@ const Login = ({ isDarkMode, toggleDarkMode }) => {
       );
 
       const { token, user } = response.data;
+      
 
       if (token && user) {
         // After login, create new activity for the user
@@ -60,7 +61,11 @@ const Login = ({ isDarkMode, toggleDarkMode }) => {
 
         // Complete login
         login(token, user, formData.remember);
-        navigate("/dashboard");
+        if(user.role !== "user"){
+          navigate("/admin");
+        }else{
+          navigate("/dashboard");
+        }
       } else {
         setError("Login failed. Please try again.");
       }

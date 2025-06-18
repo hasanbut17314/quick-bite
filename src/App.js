@@ -8,6 +8,7 @@ import SignUp from "./pages/SignUp";
 import Login from "./pages/Login";
 import FAQ from "./pages/FAQ";
 import Testimonials from "./pages/Testimonials";
+import AdminDash from "./pages/AdminDash";
 import Dashboard from "./pages/Dashboard";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import Recipes from "./pages/Recipes";
@@ -42,6 +43,7 @@ export default function App() {
           <Route path="/signup" element={<SignUp isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} />} />
           <Route path="/login" element={<Login isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} />} />
           <Route path="/dashboard" element={<Dashboard isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} />} />
+          <Route path="/admin" element={<AdminDash isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} />} />
           <Route
             path="/recipes"
             element={<Recipes recipes={recipes} isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} />}
