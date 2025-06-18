@@ -2,9 +2,7 @@ import { useAuth } from "../context/AuthContext";
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
-import { FiSettings, FiHeart, FiBookmark, FiUser, FiBarChart2, FiLogOut, FiExternalLink, FiTrash2, FiShoppingCart, FiPlus, FiEdit3, FiCheck, FiX  } from "react-icons/fi";
-
-
+import { FiSettings, FiHeart, FiBookmark, FiUser, FiBarChart2, FiLogOut, FiExternalLink, FiTrash2, FiShoppingCart, FiPlus, FiEdit3, FiCheck, FiX, FiHome } from "react-icons/fi";
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
@@ -12,77 +10,78 @@ const Dashboard = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const [loading, setLoading] = useState(true);
   const [imgUrl, setImgUrl] = useState(null);
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
   const navigate = useNavigate();
-  
-   const userDataLo = JSON.parse(localStorage.getItem("user")) || {};
 
-   const handleLogout = async () => {
-     try {
-    const authToken = localStorage.getItem('token');
-    await axios.post(
-      `http://localhost:5000/api/activity`,
-      {
-        userId: userData._id,
-        comment: `logged out at ${new Date().toLocaleString()}`,
-      },
-      {
-        headers: { Authorization: `Bearer ${authToken}` },
-      }
-    );
-    logout();
-    navigate("/login");
-  } catch (error) {
-    console.error("Failed to log logout activity:", error);
-    logout();
-    navigate("/login");
-  }
-};
+  const userDataLo = JSON.parse(localStorage.getItem("user")) || {};
 
+  const handleLogout = async () => {
+    try {
+      const authToken = localStorage.getItem('token');
+      await axios.post(
+        `http://localhost:5000/api/activity`,
+        {
+          userId: userData._id,
+          comment: `logged out at ${new Date().toLocaleString()}`,
+        },
+        {
+          headers: { Authorization: `Bearer ${authToken}` },
+        }
+      );
+      logout();
+      navigate("/login");
+    } catch (error) {
+      console.error("Failed to log logout activity:", error);
+      logout();
+      navigate("/login");
+    }
+  };
 
   const handlelogged = localStorage.getItem("token");
   if (!handlelogged) {
     navigate("/login");
   }
 
+  // Dark mode check
 
   useEffect(() => {
-  const fetchUserData = async () => {
-    try {
-      const token = localStorage.getItem('token');
+    const fetchUserData = async () => {
+      try {
+        const token = localStorage.getItem('token');
 
-      if (!token) {
-        console.error("No token found in localStorage");
-        return;
+        if (!token) {
+          console.error("No token found in localStorage");
+          return;
+        }
+
+        const user = JSON.parse(localStorage.getItem("user")); // assuming user._id is needed
+        if (!user || !user.id) {
+          console.error("No valid user found in localStorage");
+          return;
+        }
+
+        const response = await axios.get(`http://localhost:5000/api/users/${user.id}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        setUserData(response.data);
+        setIsDarkMode(response.data.preferences?.darkMode || false);
+        if (response.data.image) {
+          setImgUrl(response.data.image);
+        }
+        localStorage.setItem("userData", JSON.stringify(response.data));
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+      } finally {
+        setLoading(false);
       }
+    };
 
-      const user = JSON.parse(localStorage.getItem("user")); // assuming user._id is needed
-      if (!user || !user.id) {
-        console.error("No valid user found in localStorage");
-        return;
-      }
-
-      const response = await axios.get(`http://localhost:5000/api/users/${user.id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      setUserData(response.data);
-      if(response.data.image) {
-        setImgUrl(response.data.image);
-      }
-      localStorage.setItem("userData", JSON.stringify(response.data));
-    } catch (error) {
-      console.error("Error fetching user data:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  fetchUserData();
-}, [])
-
+    fetchUserData();
+  }, [])
 
   const handleImageUpload = async (event) => {
     const file = event.target.files[0];
@@ -102,7 +101,7 @@ const Dashboard = () => {
         const imagePath = `${res.data.image}`;
         const updatedUser = { ...userData, image: imagePath };
         setUserData(updatedUser);
-      setImgUrl(updatedUser.image);
+        setImgUrl(updatedUser.image);
         localStorage.setItem("userData", JSON.stringify(updatedUser));
       }
     } catch (err) {
@@ -112,18 +111,18 @@ const Dashboard = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+      <div className={`flex items-center justify-center min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className={`flex min-h-screen ${isDarkMode ? 'bg-gray-900 text-gray-200' : 'bg-gray-50 text-gray-800'}`}>
       {/* Sidebar */}
       <div className="hidden md:flex md:flex-shrink-0">
-        <div className="flex flex-col w-64 bg-gradient-to-b from-purple-900 to-purple-700 text-white">
-          <div className="flex items-center justify-center h-16 px-4 border-b border-purple-800">
+        <div className={`flex flex-col w-64 ${isDarkMode ? 'bg-gray-800' : 'bg-gradient-to-b from-purple-900 to-purple-700'} text-white`}>
+          <div className={`flex items-center justify-center h-16 px-4 ${isDarkMode ? 'border-b border-gray-600' : 'border-b border-purple-800'}`}>
             <h1 className="text-xl font-bold">My Dashboard</h1>
           </div>
           <div className="flex flex-col flex-grow px-4 py-8">
@@ -133,44 +132,51 @@ const Dashboard = () => {
                 <img
                   src={imgUrl ? `${imgUrl}` : "https://ui-avatars.com/api/?name=" + (userData?.name || "User") + "&background=random"}
                   alt="Profile"
-                  className="w-20 h-20 rounded-full object-cover border-4 border-purple-300 cursor-pointer hover:opacity-90 transition"
+                  className={`w-20 h-20 rounded-full object-cover border-4 ${isDarkMode ? 'border-gray-300' : 'border-purple-300'} cursor-pointer hover:opacity-90 transition`}
                 />
-                <div className="absolute bottom-0 right-0 bg-white text-purple-700 p-1 rounded-full">
+                <div className={`absolute bottom-0 right-0 ${isDarkMode ? 'bg-gray-800 text-gray-300' : 'bg-white text-purple-700'} p-1 rounded-full`}>
                   <FiUser className="w-4 h-4" />
                 </div>
               </label>
               <h2 className="mt-4 text-lg usernameUpdate font-semibold">{userData?.name || "User"}</h2>
-              <p className="text-purple-200 useremailUpdate text-sm">{userData?.email || "user@example.com"}</p>
+              <p className={`${isDarkMode ? 'text-gray-300' : 'text-purple-200'} useremailUpdate text-sm`}>{userData?.email || "user@example.com"}</p>
             </div>
-            
+
             <nav className="flex-1 space-y-2">
               <button
+                onClick={() => navigate("/")}
+                className={`flex items-center w-full px-4 py-3 rounded-lg transition ${isDarkMode ? 'text-gray-300 hover:bg-gray-600' : 'text-purple-200 hover:bg-purple-800'}`}
+              >
+                <FiHome className="mr-3" />
+                Home
+              </button>
+              <button
                 onClick={() => setActiveTab("overview")}
-                className={`flex items-center w-full px-4 py-3 rounded-lg transition ${activeTab === "overview" ? "bg-purple-600 text-white" : "text-purple-200 hover:bg-purple-800"}`}
+                className={`flex items-center w-full px-4 py-3 rounded-lg transition ${activeTab === "overview" ? (isDarkMode ? "bg-gray-600 text-white" : "bg-purple-600 text-white") : (isDarkMode ? "text-gray-300 hover:bg-gray-600" : "text-purple-200 hover:bg-purple-800")}`}
               >
                 <FiBarChart2 className="mr-3" />
                 Overview
               </button>
               <button
                 onClick={() => setActiveTab("saved")}
-                className={`flex items-center w-full px-4 py-3 rounded-lg transition ${activeTab === "saved" ? "bg-purple-600 text-white" : "text-purple-200 hover:bg-purple-800"}`}
+                className={`flex items-center w-full px-4 py-3 rounded-lg transition ${activeTab === "saved" ? (isDarkMode ? "bg-gray-600 text-white" : "bg-purple-600 text-white") : (isDarkMode ? "text-gray-300 hover:bg-gray-600" : "text-purple-200 hover:bg-purple-800")}`}
               >
                 <FiBookmark className="mr-3" />
                 Saved Items
                 {userData?.savedItems?.length > 0 && (
-                  <span className="ml-auto bg-white text-purple-700 text-xs font-bold px-2 py-1 rounded-full">
+                  <span className={`ml-auto ${isDarkMode ? 'bg-gray-800 text-gray-300' : 'bg-white text-purple-700'} text-xs font-bold px-2 py-1 rounded-full`}>
                     {userData.savedItems.length}
                   </span>
                 )}
               </button>
               <button
                 onClick={() => setActiveTab("favorites")}
-                className={`flex items-center w-full px-4 py-3 rounded-lg transition ${activeTab === "favorites" ? "bg-purple-600 text-white" : "text-purple-200 hover:bg-purple-800"}`}
+                className={`flex items-center w-full px-4 py-3 rounded-lg transition ${activeTab === "favorites" ? (isDarkMode ? "bg-gray-600 text-white" : "bg-purple-600 text-white") : (isDarkMode ? "text-gray-300 hover:bg-gray-600" : "text-purple-200 hover:bg-purple-800")}`}
               >
                 <FiHeart className="mr-3" />
                 Favorites
                 {userData?.favorites?.length > 0 && (
-                  <span className="ml-auto bg-white text-purple-700 text-xs font-bold px-2 py-1 rounded-full">
+                  <span className={`ml-auto ${isDarkMode ? 'bg-gray-800 text-gray-300' : 'bg-white text-purple-700'} text-xs font-bold px-2 py-1 rounded-full`}>
                     {userData.favorites.length}
                   </span>
                 )}
@@ -178,29 +184,29 @@ const Dashboard = () => {
               <button
                 onClick={() => setActiveTab("shopping")}
                 className={`flex items-center w-full px-4 py-3 rounded-lg transition ${
-                  activeTab === "shopping" ? "bg-purple-600 text-white" : "text-purple-200 hover:bg-purple-800"
+                  activeTab === "shopping" ? (isDarkMode ? "bg-gray-600 text-white" : "bg-purple-600 text-white") : (isDarkMode ? "text-gray-300 hover:bg-gray-600" : "text-purple-200 hover:bg-purple-800")
                 }`}
               >
                 <FiShoppingCart className="mr-3" />
                 Shopping List
                 {userData?.shoppingList?.length > 0 && (
-                  <span className="ml-auto bg-white text-purple-700 text-xs font-bold px-2 py-1 rounded-full">
+                  <span className={`ml-auto ${isDarkMode ? 'bg-gray-800 text-gray-300' : 'bg-white text-purple-700'} text-xs font-bold px-2 py-1 rounded-full`}>
                     {userData.shoppingList.length}
                   </span>
                 )}
               </button>
               <button
                 onClick={() => setActiveTab("settings")}
-                className={`flex items-center w-full px-4 py-3 rounded-lg transition ${activeTab === "settings" ? "bg-purple-600 text-white" : "text-purple-200 hover:bg-purple-800"}`}
+                className={`flex items-center w-full px-4 py-3 rounded-lg transition ${activeTab === "settings" ? (isDarkMode ? "bg-gray-600 text-white" : "bg-purple-600 text-white") : (isDarkMode ? "text-gray-300 hover:bg-gray-600" : "text-purple-200 hover:bg-purple-800")}`}
               >
                 <FiSettings className="mr-3" />
                 Settings
               </button>
             </nav>
-            
+
             <button
               onClick={handleLogout}
-              className="flex items-center w-full px-4 py-3 mt-auto text-purple-200 hover:bg-purple-800 rounded-lg transition"
+              className={`flex items-center w-full px-4 py-3 mt-auto ${isDarkMode ? 'text-gray-300 hover:bg-gray-600' : 'text-purple-200 hover:bg-purple-800'} rounded-lg transition`}
             >
               <FiLogOut className="mr-3" />
               Logout
@@ -209,73 +215,47 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Mobile header */}
-      <div className="hidden bg-purple-700 text-white p-4 flex justify-between items-center">
-        <h1 className="text-xl font-bold">Dashboard</h1>
-        <button className="p-2 rounded-full bg-purple-600">
-          <FiSettings className="w-5 h-5" />
-        </button>
-      </div>
-
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <main className="flex-1 overflow-y-auto p-6">
           <div className="max-w-6xl mx-auto">
             {/* Mobile profile header */}
             <div className="md:hidden flex items-center mb-6">
-  <label className="relative mr-4">
-    <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
-    <img
-      src={imgUrl ? `${imgUrl}` : "https://ui-avatars.com/api/?name=" + (userData?.name || "User") + "&background=random"}
-      alt="Profile"
-      className="w-12 h-12 rounded-full object-cover border-2 border-purple-300 cursor-pointer"
-    />
-  </label>
-  <div>
-    <h2 className="text-lg usernameUpdate font-semibold text-gray-800">{userData?.name || "User"}</h2>
-    <p className="text-sm useremailUpdate text-gray-600">{userData?.email || "user@example.com"}</p>
-  </div>
-  <div className="ml-auto">
-    <button
-  onClick={handleLogout}
-  className="flex items-center px-4 py-2 text-white bg-purple-700 hover:bg-purple-800 rounded-lg transition"
->
-  <FiLogOut className="mr-2" />
-  Logout
-</button>
-
-  </div>
-</div>
-
-
-            
-
-            {/* Mobile tabs */}
-            <div className="md:hidden flex overflow-x-auto mb-6 pb-2 space-x-2">
-              {["overview", "saved", "favorites", "shopping", "settings"].map((tab) => (
+              <label className="relative mr-4">
+                <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                <img
+                  src={imgUrl ? `${imgUrl}` : "https://ui-avatars.com/api/?name=" + (userData?.name || "User") + "&background=random"}
+                  alt="Profile"
+                  className={`w-12 h-12 rounded-full object-cover border-2 ${isDarkMode ? 'border-gray-300' : 'border-purple-300'} cursor-pointer`}
+                />
+              </label>
+              <div>
+                <h2 className={`text-lg usernameUpdate font-semibold ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}>{userData?.name || "User"}</h2>
+                <p className={`text-sm useremailUpdate ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>{userData?.email || "user@example.com"}</p>
+              </div>
+              <div className="ml-auto">
                 <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`px-4 py-2 rounded-full text-sm whitespace-nowrap ${activeTab === tab ? "bg-purple-600 text-white" : "bg-gray-200 text-gray-700"}`}
+                  onClick={handleLogout}
+                  className={`flex items-center px-4 py-2 text-white ${isDarkMode ? 'bg-gray-700 hover:bg-gray-800' : 'bg-purple-700 hover:bg-purple-800'} rounded-lg transition`}
                 >
-                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                  {["saved", "favorites"].includes(tab) && userData?.[tab]?.length > 0 && (
-                    <span className="ml-1 bg-white text-purple-700 text-xs font-bold px-1.5 py-0.5 rounded-full">
-                      {userData[tab].length}
-                    </span>
-                  )}
+                  <FiLogOut className="mr-2" />
+                  Logout
                 </button>
-              ))}
-              
+              </div>
             </div>
 
             {/* Dashboard content */}
-            <div className="bg-white rounded-xl shadow-md overflow-hidden">
-              {activeTab === "overview" && <OverviewTab userData={userData} />}
-              {activeTab === "saved" && <SavedItemsTab userData={userData} />}
-              {activeTab === "favorites" && <FavoritesTab userData={userData} />}
-              {activeTab === "shopping" && <ShoppingTab userData={userData} />}
-              {activeTab === "settings" && <SettingsTab userData={userData} />}
+            <div className={`${isDarkMode ? 'bg-gray-700' : 'bg-white'} rounded-xl shadow-md overflow-hidden`}>
+              {activeTab === "overview" && <OverviewTab userData={userData} isDarkMode={isDarkMode} />}
+              {activeTab === "saved" && <SavedItemsTab userData={userData} isDarkMode={isDarkMode} />}
+              {activeTab === "favorites" && <FavoritesTab userData={userData} isDarkMode={isDarkMode} />}
+              {activeTab === "shopping" && <ShoppingTab userData={userData} isDarkMode={isDarkMode} />}
+              {activeTab === "settings" && <SettingsTab 
+  userData={userData} 
+  setUserData={setUserData} 
+  isDarkMode={isDarkMode} 
+  setIsDarkMode={setIsDarkMode} 
+/>}
             </div>
           </div>
         </main>
@@ -284,8 +264,7 @@ const Dashboard = () => {
   );
 };
 
-
-const OverviewTab = ({ userData }) => {
+const OverviewTab = ({ userData, isDarkMode }) => {
   const [activities, setActivities] = useState([]);
   const [savedItemsCount, setSavedItemsCount] = useState(0);
   const [favoritesCount, setFavoritesCount] = useState(0);
@@ -319,8 +298,8 @@ const OverviewTab = ({ userData }) => {
   }, []);
 
   return (
-    <div className="p-6">
-      <h2 className="text-2xl font-bold text-gray-800 mb-6">
+    <div className={`p-6 ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>
+      <h2 className={`text-2xl font-bold mb-6 ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}>
         Welcome back, {userData?.name || "User"}!
       </h2>
 
@@ -341,20 +320,20 @@ const OverviewTab = ({ userData }) => {
         </div>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Recent Activity</h3>
+      <div className={`border ${isDarkMode ? 'bg-gray-600 border-gray-500' : 'bg-white border-gray-200'} rounded-lg p-6`}>
+        <h3 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>Recent Activity</h3>
         {loading ? (
-          <p>Loading activities...</p>
+          <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Loading activities...</p>
         ) : activities.length > 0 ? (
           <ul className="space-y-4">
             {activities.slice(0, 10).map((activity) => (
               <li key={activity._id} className="flex items-start">
-                <div className="bg-purple-100 p-2 rounded-full mr-3">
-                  <FiBookmark className="text-purple-600" />
+                <div className={`${isDarkMode ? 'bg-gray-500' : 'bg-purple-100'} p-2 rounded-full mr-3`}>
+                  <FiBookmark className={`${isDarkMode ? 'text-gray-200' : 'text-purple-600'}`} />
                 </div>
                 <div>
-                  <p className="text-gray-800">{userData.name} {activity.comment}</p>
-                  <p className="text-sm text-gray-500">
+                  <p className={`${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>{userData.name} {activity.comment}</p>
+                  <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                     {new Date(activity.createdAt).toLocaleString()}
                   </p>
                 </div>
@@ -363,7 +342,7 @@ const OverviewTab = ({ userData }) => {
           </ul>
         ) : (
           <div className="text-center py-8">
-            <p className="text-gray-500">No recent activity found</p>
+            <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>No recent activity found</p>
           </div>
         )}
       </div>
@@ -376,12 +355,11 @@ const OverviewTab = ({ userData }) => {
 
 
 
-const SavedItemsTab = ({ userData }) => {
+const SavedItemsTab = ({ userData, isDarkMode }) => {
   const [savedRecipes, setSavedRecipes] = useState([]);
   const [loading, setLoading] = useState(false);
 
-
-    useEffect(() => {
+  useEffect(() => {
     fetchSavedRecipes();
   }, []);
 
@@ -417,33 +395,35 @@ const SavedItemsTab = ({ userData }) => {
   };
 
   const deleteShoppingList = async (recipeUrl) => {
-  const token = localStorage.getItem("token");
+    const token = localStorage.getItem("token");
 
-  if (!recipeUrl) {
-    console.error("Recipe URL is required to delete shopping list.");
-    return;
-  }
+    if (!recipeUrl) {
+      console.error("Recipe URL is required to delete shopping list.");
+      return;
+    }
 
-  try {
-    const res = await axios.delete(
-      "http://localhost:5000/api/list", // assuming this is your delete endpoint
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        data: { recipeId: recipeUrl }, // DELETE with a body requires 'data' in axios
-      }
-    );
+    try {
+      const res = await axios.delete(
+        "http://localhost:5000/api/list", // assuming this is your delete endpoint
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          data: { recipeId: recipeUrl }, // DELETE with a body requires 'data' in axios
+        }
+      );
 
-  } catch (error) {
-    console.error("Failed to delete shopping list item:", error);
-  }
-};
+    } catch (error) {
+      console.error("Failed to delete shopping list item:", error);
+    }
+  };
 
   return (
-    <div className="p-6">
-      <h2 className="text-2xl font-bold text-gray-800 mb-6 sticky top-0 bg-white py-4 z-10">Favorites</h2>
-      
+    <div className={`p-6 ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>
+      <h2 className={`text-2xl font-bold ${isDarkMode ? 'text-gray-100' : 'text-gray-800'} mb-6 sticky top-0 ${isDarkMode ? 'bg-gray-700' : 'bg-white'} py-4 z-10`}>
+        Saved Recipes
+      </h2>
+
       {loading ? (
         <div className="flex justify-center py-12">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
@@ -451,7 +431,7 @@ const SavedItemsTab = ({ userData }) => {
       ) : savedRecipes?.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {savedRecipes.map((recipe, index) => (
-            <div key={index} className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition">
+            <div key={index} className={`border ${isDarkMode ? 'border-gray-500 bg-gray-600' : 'border-gray-200 bg-white'} rounded-lg overflow-hidden hover:shadow-md transition`}>
               <div className="h-48 bg-gray-100 overflow-hidden">
                 <img 
                   src={recipe.image || '/placeholder-recipe.jpg'} 
@@ -460,22 +440,22 @@ const SavedItemsTab = ({ userData }) => {
                 />
               </div>
               <div className="p-4">
-                <h3 className="font-semibold text-lg mb-1">{recipe.title}</h3>
-                <p className="text-gray-600 text-sm mb-2">
-                   {Math.round(recipe.calories)} calories
+                <h3 className={`font-semibold text-lg mb-1 ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}>{recipe.title}</h3>
+                <p className={`text-sm mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                  {Math.round(recipe.calories)} calories
                 </p>
                 <div className="flex justify-between items-center">
                   <a 
                     href={recipe.link} 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="flex items-center text-purple-600 hover:text-purple-800 text-sm"
+                    className={`flex items-center ${isDarkMode ? 'text-purple-300 hover:text-purple-400' : 'text-purple-600 hover:text-purple-800'} text-sm`}
                   >
                     <FiExternalLink className="mr-1" /> View
                   </a>
                   <button 
                     onClick={() => handleRemoveRecipe(recipe.link)}
-                    className="flex items-center text-red-500 hover:text-red-700 text-sm"
+                    className={`flex items-center ${isDarkMode ? 'text-red-300 hover:text-red-400' : 'text-red-500 hover:text-red-700'} text-sm`}
                   >
                     <FiHeart className="fill-current mr-1" /> Remove
                   </button>
@@ -486,19 +466,18 @@ const SavedItemsTab = ({ userData }) => {
         </div>
       ) : (
         <div className="text-center py-12">
-          <div className="mx-auto w-24 h-24 bg-purple-100 rounded-full flex items-center justify-center mb-4">
-            <FiBookmark className="text-purple-600 text-3xl" />
+          <div className={`mx-auto w-24 h-24 ${isDarkMode ? 'bg-gray-500' : 'bg-purple-100'} rounded-full flex items-center justify-center mb-4`}>
+            <FiBookmark className={`text-3xl ${isDarkMode ? 'text-gray-300' : 'text-purple-600'}`} />
           </div>
-          <h3 className="text-xl font-semibold text-gray-800 mb-2">No saved recipes yet</h3>
-          <p className="text-gray-600 mb-4">Save recipes to see them appear here</p>
-          
+          <h3 className={`text-xl font-semibold ${isDarkMode ? 'text-gray-100' : 'text-gray-800'} mb-2`}>No saved recipes yet</h3>
+          <p className={`${isDarkMode ? 'text-gray-300' : 'text-gray-600'} mb-4`}>Save recipes to see them appear here</p>
         </div>
       )}
     </div>
   );
 };
 
-const FavoritesTab = ({ userData }) => {
+const FavoritesTab = ({ userData, isDarkMode }) => {
   const [favoriteRecipes, setFavoriteRecipes] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -537,9 +516,9 @@ const FavoritesTab = ({ userData }) => {
   };
 
   return (
-    <div className="p-6">
-      <h2 className="text-2xl font-bold text-gray-800 mb-6 sticky top-0 bg-white py-4 z-10">Favorites</h2>
-      
+    <div className={`p-6 ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>
+      <h2 className={`text-2xl font-bold ${isDarkMode ? 'text-gray-100' : 'text-gray-800'} mb-6 sticky top-0 ${isDarkMode ? 'bg-gray-700' : 'bg-white'} py-4 z-10`}>Favorites</h2>
+
       {loading ? (
         <div className="flex justify-center py-12">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
@@ -547,7 +526,7 @@ const FavoritesTab = ({ userData }) => {
       ) : favoriteRecipes?.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {favoriteRecipes.map((recipe, index) => (
-            <div key={index} className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition">
+            <div key={index} className={`border ${isDarkMode ? 'border-gray-500 bg-gray-600' : 'border-gray-200 bg-white'} rounded-lg overflow-hidden hover:shadow-md transition`}>
               <div className="h-48 bg-gray-100 overflow-hidden">
                 <img 
                   src={recipe.image || '/placeholder-recipe.jpg'} 
@@ -556,22 +535,22 @@ const FavoritesTab = ({ userData }) => {
                 />
               </div>
               <div className="p-4">
-                <h3 className="font-semibold text-lg mb-1">{recipe.title}</h3>
-                <p className="text-gray-600 text-sm mb-2">
-                   {Math.round(recipe.calories)} calories
+                <h3 className={`font-semibold text-lg mb-1 ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}>{recipe.title}</h3>
+                <p className={`text-sm mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                  {Math.round(recipe.calories)} calories
                 </p>
                 <div className="flex justify-between items-center">
                   <a 
                     href={recipe.link} 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="flex items-center text-purple-600 hover:text-purple-800 text-sm"
+                    className={`flex items-center ${isDarkMode ? 'text-purple-300 hover:text-purple-400' : 'text-purple-600 hover:text-purple-800'} text-sm`}
                   >
                     <FiExternalLink className="mr-1" /> View
                   </a>
                   <button 
                     onClick={() => handleRemoveFavorite(recipe.link)}
-                    className="flex items-center text-red-500 hover:text-red-700 text-sm"
+                    className={`flex items-center ${isDarkMode ? 'text-red-300 hover:text-red-400' : 'text-red-500 hover:text-red-700'} text-sm`}
                   >
                     <FiHeart className="fill-current mr-1" /> Remove
                   </button>
@@ -582,11 +561,11 @@ const FavoritesTab = ({ userData }) => {
         </div>
       ) : (
         <div className="text-center py-12">
-          <div className="mx-auto w-24 h-24 bg-pink-100 rounded-full flex items-center justify-center mb-4">
-            <FiHeart className="text-pink-600 text-3xl" />
+          <div className={`mx-auto w-24 h-24 ${isDarkMode ? 'bg-gray-500' : 'bg-pink-100'} rounded-full flex items-center justify-center mb-4`}>
+            <FiHeart className={`text-3xl ${isDarkMode ? 'text-gray-300' : 'text-pink-600'}`} />
           </div>
-          <h3 className="text-xl font-semibold text-gray-800 mb-2">No favorites yet</h3>
-          <p className="text-gray-600">Mark recipes as favorite to see them here</p>
+          <h3 className={`text-xl font-semibold ${isDarkMode ? 'text-gray-100' : 'text-gray-800'} mb-2`}>No favorites yet</h3>
+          <p className={`${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>Mark recipes as favorite to see them here</p>
         </div>
       )}
     </div>
@@ -595,13 +574,19 @@ const FavoritesTab = ({ userData }) => {
 
 
 
-const ShoppingTab = () => {
+const ShoppingTab = ({ isDarkMode }) => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
 
   const [editingId, setEditingId] = useState(null);
   const [editComment, setEditComment] = useState("");
   const [editIngredientsText, setEditIngredientsText] = useState("");
+
+  // Create form state
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [newComment, setNewComment] = useState("");
+  const [newIngredientsText, setNewIngredientsText] = useState("");
+  const [creating, setCreating] = useState(false);
 
   const token = localStorage.getItem("token");
 
@@ -637,6 +622,40 @@ const ShoppingTab = () => {
     ingredients
       .map((ing) => ing.name)
       .join("\n");
+
+  const createItem = async () => {
+    if (!newComment.trim()) {
+      alert("Comment cannot be empty");
+      return;
+    }
+    const ingredients = parseIngredients(newIngredientsText);
+    if (ingredients.length === 0) {
+      alert("Please enter at least one ingredient");
+      return;
+    }
+
+    const payload = {
+      recipeId: "manual-entry",
+      comment: newComment,
+      ingredients,
+    };
+
+    setCreating(true);
+    try {
+      const res = await axios.post("http://localhost:5000/api/list", payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setItems([res.data, ...items]);
+      setShowCreateForm(false);
+      setNewComment("");
+      setNewIngredientsText("");
+    } catch (err) {
+      console.error("Failed to create item:", err);
+      alert("Failed to create shopping list item");
+    } finally {
+      setCreating(false);
+    }
+  };
 
   const updateItem = async (id) => {
     if (!editComment.trim()) {
@@ -686,43 +705,114 @@ const ShoppingTab = () => {
   };
 
   return (
-    <div className="p-6 max-w-3xl mx-auto">
-      <h2 className="text-3xl font-extrabold text-gray-900 mb-6 border-b-2 pb-2">
-        My Shopping List
-      </h2>
+    <div className={`p-6 max-w-3xl mx-auto ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>
+      <div className="flex justify-between items-center mb-6 border-b-2 pb-2">
+        <h2 className={`text-3xl font-extrabold ${isDarkMode ? 'text-gray-100' : 'text-gray-900'}`}>
+          My Shopping List
+        </h2>
+        <button
+          onClick={() => setShowCreateForm(!showCreateForm)}
+          className={`flex items-center px-4 py-2 ${isDarkMode ? 'bg-gray-600 hover:bg-gray-700 text-gray-200' : 'bg-purple-600 hover:bg-purple-700 text-white'} rounded-lg transition`}
+        >
+          <FiPlus className="mr-2" size={20} />
+          Add New Item
+        </button>
+      </div>
+
+      {/* Create Form */}
+      {showCreateForm && (
+        <div className={`rounded-xl p-6 mb-6 border-2 ${isDarkMode ? 'bg-gray-600 border-gray-500' : 'bg-gray-50 border-purple-200'}`}>
+          <h3 className={`text-xl font-semibold ${isDarkMode ? 'text-gray-100' : 'text-gray-800'} mb-4`}>Create New Shopping List</h3>
+          
+          <label className={`block mb-2 font-semibold ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>Comment/Title:</label>
+          <input
+            type="text"
+            value={newComment}
+            onChange={(e) => setNewComment(e.target.value)}
+            className={`w-full p-3 border ${isDarkMode ? 'bg-gray-500 border-gray-400' : 'bg-white border-gray-300'} rounded-lg mb-4 focus:outline-none focus:ring-2 ${isDarkMode ? 'focus:ring-gray-400' : 'focus:ring-purple-500'}`}
+            placeholder="Enter a comment or title for this shopping list"
+          />
+
+          <label className={`block mb-2 font-semibold ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>
+            Ingredients (one per line):
+          </label>
+          <textarea
+            rows={5}
+            value={newIngredientsText}
+            onChange={(e) => setNewIngredientsText(e.target.value)}
+            className={`w-full p-3 border ${isDarkMode ? 'bg-gray-500 border-gray-400' : 'bg-white border-gray-300'} rounded-lg mb-4 resize-none focus:outline-none focus:ring-2 ${isDarkMode ? 'focus:ring-gray-400' : 'focus:ring-purple-500'}`}
+            placeholder="e.g., 
+flour
+sugar
+eggs
+milk"
+          />
+
+          <div className="flex gap-4">
+            <button
+              onClick={createItem}
+              disabled={creating}
+              className={`px-6 py-2 ${isDarkMode ? 'bg-green-700 hover:bg-green-800' : 'bg-green-600 hover:bg-green-700'} text-white rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
+              {creating ? (
+                <div className="flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-white mr-2"></div>
+                  Creating...
+                </div>
+              ) : (
+                <>
+                  <FiCheck className="inline mr-2" size={18} />
+                  Create
+                </>
+              )}
+            </button>
+            <button
+              onClick={() => {
+                setShowCreateForm(false);
+                setNewComment("");
+                setNewIngredientsText("");
+              }}
+              className={`px-6 py-2 ${isDarkMode ? 'bg-gray-400 hover:bg-gray-500' : 'bg-gray-300 hover:bg-gray-400'} text-gray-700 rounded-lg transition`}
+            >
+              <FiX className="inline mr-2" size={18} />
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex justify-center py-10">
           <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-purple-600"></div>
         </div>
       ) : items.length === 0 ? (
-        <p className="text-gray-500 text-center text-lg mt-10">No shopping items available.</p>
+        <p className={`text-center text-lg mt-10 ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>No shopping items available.</p>
       ) : (
         <ul className="space-y-6">
           {items.map((item) => (
             <li
               key={item._id}
-              className="bg-white rounded-xl shadow-md p-6 hover:shadow-lg transition-shadow"
+              className={`rounded-xl shadow-md p-6 ${isDarkMode ? 'bg-gray-600 shadow-gray-700' : 'bg-white shadow-lg'} transition-shadow`}
             >
               {editingId === item._id ? (
                 <>
-                  <label className="block mb-2 font-semibold text-gray-700">Edit Comment:</label>
+                  <label className={`block mb-2 font-semibold ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>Edit Comment:</label>
                   <input
                     type="text"
                     value={editComment}
                     onChange={(e) => setEditComment(e.target.value)}
-                    className="w-full p-3 border border-gray-300 rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className={`w-full p-3 border ${isDarkMode ? 'bg-gray-500 border-gray-400' : 'bg-white border-gray-300'} rounded-lg mb-4 focus:outline-none focus:ring-2 ${isDarkMode ? 'focus:ring-gray-400' : 'focus:ring-purple-500'}`}
                     placeholder="Edit comment"
                   />
 
-                  <label className="block mb-2 font-semibold text-gray-700">
+                  <label className={`block mb-2 font-semibold ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>
                     Edit Ingredients (one per line):
                   </label>
                   <textarea
                     rows={5}
                     value={editIngredientsText}
                     onChange={(e) => setEditIngredientsText(e.target.value)}
-                    className="w-full p-3 border border-gray-300 rounded-lg mb-4 resize-none focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className={`w-full p-3 border ${isDarkMode ? 'bg-gray-500 border-gray-400' : 'bg-white border-gray-300'} rounded-lg mb-4 resize-none focus:outline-none focus:ring-2 ${isDarkMode ? 'focus:ring-gray-400' : 'focus:ring-purple-500'}`}
                     placeholder="e.g., flour"
                   />
 
@@ -749,12 +839,12 @@ const ShoppingTab = () => {
                 </>
               ) : (
                 <>
-                  <h3 className="text-xl font-semibold text-purple-700 mb-3 border-b border-purple-300 pb-1">
+                  <h3 className={`text-xl font-semibold ${isDarkMode ? 'text-gray-100' : 'text-gray-800'} mb-3 border-b ${isDarkMode ? 'border-gray-500' : 'border-purple-300'} pb-1`}>
                     {item.comment || "No Comment"}
                   </h3>
-                  <ul className="list-disc list-inside space-y-1 mb-4 text-gray-800">
+                  <ul className={`list-disc list-inside space-y-1 mb-4 ${isDarkMode ? 'text-gray-300' : 'text-gray-800'}`}>
                     {item.ingredients.map((ing, i) => (
-                      <li key={i} className="pl-2 list-disc text-gray-800">
+                      <li key={i} className="pl-2 list-disc">
                         {ing.name}
                       </li>
                     ))}
@@ -766,21 +856,19 @@ const ShoppingTab = () => {
                         setEditComment(item.comment);
                         setEditIngredientsText(ingredientsToText(item.ingredients));
                       }}
-                      className="text-purple-600 hover:text-purple-800 font-semibold"
+                      className={`text-purple-600 hover:text-purple-800 font-semibold ${isDarkMode ? 'text-purple-300' : ''}`}
                       title="Edit"
                     >
                       <FiEdit3 size={22} />
                     </button>
 
-                    {item.recipeId === "manual-entry" && (
-                      <button
-                        onClick={() => deleteItem(item._id)}
-                        className="text-red-600 hover:text-red-800 font-semibold"
-                        title="Delete"
-                      >
-                        <FiTrash2 size={22} />
-                      </button>
-                    )}
+                    <button
+                      onClick={() => deleteItem(item._id)}
+                      className={`text-red-600 hover:text-red-800 font-semibold ${isDarkMode ? 'text-red-300' : ''}`}
+                      title="Delete"
+                    >
+                      <FiTrash2 size={22} />
+                    </button>
                   </div>
                 </>
               )}
@@ -795,14 +883,14 @@ const ShoppingTab = () => {
 
 
 
-const SettingsTab = () => {
+const SettingsTab = ({ isDarkMode, setIsDarkMode }) => {
   const [userData, setUserData] = useState(null);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     preferences: {
       notifications: true,
-      darkMode: false,
+      darkMode: isDarkMode,
       dietaryRestrictions: [],
       favoriteCuisines: [],
       mealTypes: [],
@@ -924,6 +1012,9 @@ const SettingsTab = () => {
   };
 
   const handleTogglePreference = (category) => {
+    if (category === 'darkMode') {
+      setIsDarkMode(!formData.preferences.darkMode);
+    }
     setFormData((prev) => ({
       ...prev,
       preferences: {
@@ -962,14 +1053,21 @@ const SettingsTab = () => {
         }
       );
 
-      document.querySelectorAll(".usernameUpdate").forEach((el) => {
+      if(res.data.success == true){
+        document.querySelectorAll(".usernameUpdate").forEach((el) => {
         el.textContent = res.data.name;
       });
       document.querySelectorAll(".useremailUpdate").forEach((el) => {
         el.textContent = res.data.email;
       });
+      setIsDarkMode(res.data.preferences.darkMode);
       setSuccessMessage("Settings updated successfully!");
       setTimeout(() => setSuccessMessage(""), 3000);
+      }else{
+        setSuccessMessage("Failed to update settings. Please try again.");
+        setTimeout(() => setSuccessMessage(""), 3000);
+      }
+      
     } catch (err) {
       console.error("Failed to update:", err);
     } finally {
@@ -984,11 +1082,11 @@ const SettingsTab = () => {
   }
 
   return (
-    <div className="p-6">
-      <h2 className="text-2xl font-bold text-gray-800 mb-6">Settings</h2>
+    <div className={`p-6 ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>
+      <h2 className={`text-2xl font-bold ${isDarkMode ? 'text-gray-100' : 'text-gray-800'} mb-6`}>Settings</h2>
 
       {successMessage && (
-        <div className="mb-6 p-3 bg-green-100 text-green-700 rounded-lg">
+        <div className={`mb-6 p-3 ${isDarkMode ? 'bg-gray-600 text-gray-200' : 'bg-green-100 text-green-700'} rounded-lg`}>
           {successMessage}
         </div>
       )}
@@ -997,7 +1095,7 @@ const SettingsTab = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label
-              className="block text-sm font-medium text-gray-700 mb-1"
+              className={`block text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-700'} mb-1`}
               htmlFor="name"
             >
               Name
@@ -1008,12 +1106,12 @@ const SettingsTab = () => {
               id="name"
               value={formData.name}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+              className={`w-full px-4 py-2 border ${isDarkMode ? 'bg-gray-500 border-gray-400' : 'bg-white border-gray-300'} rounded-lg focus:ring-purple-500 focus:border-purple-500`}
             />
           </div>
           <div>
             <label
-              className="block text-sm font-medium text-gray-700 mb-1"
+              className={`block text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-700'} mb-1`}
               htmlFor="email"
             >
               Email
@@ -1024,13 +1122,13 @@ const SettingsTab = () => {
               id="email"
               value={formData.email}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+              className={`w-full px-4 py-2 border ${isDarkMode ? 'bg-gray-500 border-gray-400' : 'bg-white border-gray-300'} rounded-lg focus:ring-purple-500 focus:border-purple-500`}
             />
           </div>
         </div>
 
         <div>
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Preferences</h3>
+          <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-gray-100' : 'text-gray-800'} mb-4`}>Preferences</h3>
           <div className="space-y-4">
             <div className="flex items-center">
               <input
@@ -1042,7 +1140,7 @@ const SettingsTab = () => {
               />
               <label
                 htmlFor="notifications"
-                className="ml-2 block text-sm text-gray-700"
+                className={`ml-2 block text-sm ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}
               >
                 Email notifications
               </label>
@@ -1057,7 +1155,7 @@ const SettingsTab = () => {
               />
               <label
                 htmlFor="darkMode"
-                className="ml-2 block text-sm text-gray-700"
+                className={`ml-2 block text-sm ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}
               >
                 Dark mode
               </label>
@@ -1067,7 +1165,7 @@ const SettingsTab = () => {
 
         {/* Dietary Preferences */}
         <div>
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">
+          <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-gray-100' : 'text-gray-800'} mb-4`}>
             Dietary Preferences
           </h3>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
@@ -1085,7 +1183,7 @@ const SettingsTab = () => {
                 />
                 <label
                   htmlFor={`diet-${option}`}
-                  className="ml-2 block text-sm text-gray-700"
+                  className={`ml-2 block text-sm ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}
                 >
                   {option}
                 </label>
@@ -1095,57 +1193,57 @@ const SettingsTab = () => {
         </div>
 
         {/* Favorite Cuisines */}
-        <div>
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">
-            Favorite Cuisines
-          </h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
-            {cuisineOptions.map((option) => (
-              <div key={option} className="flex items-center">
-                <input
-                  type="checkbox"
-                  id={`cuisine-${option}`}
-                  checked={
-                    formData.preferences.favoriteCuisines?.includes(option) ||
-                    false
-                  }
-                  onChange={() => handlePreferenceChange("favoriteCuisines", option)}
-                  className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
-                />
-                <label
-                  htmlFor={`cuisine-${option}`}
-                  className="ml-2 block text-sm text-gray-700"
-                >
-                  {option}
-                </label>
-              </div>
-            ))}
-          </div>
-        </div>
+<div>
+  <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-gray-100' : 'text-gray-800'} mb-4`}>
+    Favorite Cuisines
+  </h3>
+  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
+    {cuisineOptions.map((option) => (
+      <div key={option} className="flex items-center">
+        <input
+          type="checkbox"
+          id={`cuisine-${option}`}
+          checked={
+            formData.preferences.favoriteCuisines?.includes(option) ||
+            false
+          }
+          onChange={() => handlePreferenceChange("favoriteCuisines", option)}
+          className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+        />
+        <label
+          htmlFor={`cuisine-${option}`}
+          className={`ml-2 block text-sm ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}
+        >
+          {option}
+        </label>
+      </div>
+    ))}
+  </div>
+</div>
 
-        {/* Meal Types */}
-        <div>
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Meal Types</h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
-            {mealTypeOptions.map((option) => (
-              <div key={option} className="flex items-center">
-                <input
-                  type="checkbox"
-                  id={`meal-${option}`}
-                  checked={formData.preferences.mealTypes?.includes(option) || false}
-                  onChange={() => handlePreferenceChange("mealTypes", option)}
-                  className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
-                />
-                <label
-                  htmlFor={`meal-${option}`}
-                  className="ml-2 block text-sm text-gray-700"
-                >
-                  {option}
-                </label>
-              </div>
-            ))}
-          </div>
-        </div>
+{/* Meal Types */}
+<div>
+  <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-gray-100' : 'text-gray-800'} mb-4`}>Meal Types</h3>
+  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
+    {mealTypeOptions.map((option) => (
+      <div key={option} className="flex items-center">
+        <input
+          type="checkbox"
+          id={`meal-${option}`}
+          checked={formData.preferences.mealTypes?.includes(option) || false}
+          onChange={() => handlePreferenceChange("mealTypes", option)}
+          className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+        />
+        <label
+          htmlFor={`meal-${option}`}
+          className={`ml-2 block text-sm ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}
+        >
+          {option}
+        </label>
+      </div>
+    ))}
+  </div>
+</div>
 
         <div className="pt-4">
           <button
