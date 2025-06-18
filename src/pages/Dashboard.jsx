@@ -244,6 +244,29 @@ const Dashboard = () => {
               </div>
             </div>
 
+                {/* Mobile tabs */}
+                            <div className="md:hidden flex overflow-x-auto mb-6 pb-2 space-x-2">
+                              <button
+                                onClick={() => navigate("/")}
+                                className={`px-4 py-2 rounded-full text-sm whitespace-nowrap ${isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700'}`}
+                              >
+                                Home
+                              </button>
+                              {["overview", "saved", "favorites", "shopping", "settings"].map((tab) => (
+                                <button
+                                  key={tab}
+                                  onClick={() => setActiveTab(tab)}
+                                  className={`px-4 py-2 rounded-full text-sm whitespace-nowrap ${
+                                    activeTab === tab 
+                                      ? `${isDarkMode ? 'bg-gray-600' : 'bg-purple-600'} text-white` 
+                                      : `${isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700'}`
+                                  }`}
+                                >
+                                  {tab === "users" ? "User Management" : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                                </button>
+                              ))}
+                            </div>
+
             {/* Dashboard content */}
             <div className={`${isDarkMode ? 'bg-gray-700' : 'bg-white'} rounded-xl shadow-md overflow-hidden`}>
               {activeTab === "overview" && <OverviewTab userData={userData} isDarkMode={isDarkMode} />}
@@ -574,6 +597,7 @@ const FavoritesTab = ({ userData, isDarkMode }) => {
 
 
 
+
 const ShoppingTab = ({ isDarkMode }) => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -581,11 +605,13 @@ const ShoppingTab = ({ isDarkMode }) => {
   const [editingId, setEditingId] = useState(null);
   const [editComment, setEditComment] = useState("");
   const [editIngredientsText, setEditIngredientsText] = useState("");
+  const [editStatus, setEditStatus] = useState("pending");
+  const [editShoppingDate, setEditShoppingDate] = useState("");
 
-  // Create form state
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newComment, setNewComment] = useState("");
   const [newIngredientsText, setNewIngredientsText] = useState("");
+  const [newShoppingDate, setNewShoppingDate] = useState("");
   const [creating, setCreating] = useState(false);
 
   const token = localStorage.getItem("token");
@@ -600,6 +626,7 @@ const ShoppingTab = ({ isDarkMode }) => {
       const res = await axios.get("http://localhost:5000/api/list", {
         headers: { Authorization: `Bearer ${token}` },
       });
+      
       setItems(res.data);
     } catch (err) {
       console.error("Failed to fetch items:", err);
@@ -608,36 +635,33 @@ const ShoppingTab = ({ isDarkMode }) => {
     }
   };
 
-  // Parse ingredients but ignore quantities; only keep names
-  const parseIngredients = (text) => {
-    return text
+  const parseIngredients = (text) =>
+    text
       .split("\n")
       .map((line) => line.trim())
       .filter((line) => line.length > 0)
       .map((line) => ({ name: line, quantity: "" }));
+
+  const ingredientsToText = (ingredients) =>
+    ingredients.map((ing) => ing.name).join("\n");
+
+  const adjustDateMinusHours = (datetimeStr, hours) => {
+    const date = new Date(datetimeStr);
+    date.setHours(date.getHours() - hours);
+    return date.toISOString();
   };
 
-  // Convert ingredients array back to multiline text (only names)
-  const ingredientsToText = (ingredients) =>
-    ingredients
-      .map((ing) => ing.name)
-      .join("\n");
-
   const createItem = async () => {
-    if (!newComment.trim()) {
-      alert("Comment cannot be empty");
-      return;
-    }
+    if (!newComment.trim()) return alert("Comment cannot be empty");
     const ingredients = parseIngredients(newIngredientsText);
-    if (ingredients.length === 0) {
-      alert("Please enter at least one ingredient");
-      return;
-    }
+    if (ingredients.length === 0) return alert("Add at least one ingredient");
 
     const payload = {
       recipeId: "manual-entry",
       comment: newComment,
       ingredients,
+      status: "pending",
+      shoppingDate: newShoppingDate ? adjustDateMinusHours(newShoppingDate, 5) : null,
     };
 
     setCreating(true);
@@ -645,10 +669,12 @@ const ShoppingTab = ({ isDarkMode }) => {
       const res = await axios.post("http://localhost:5000/api/list", payload, {
         headers: { Authorization: `Bearer ${token}` },
       });
+      console.log("Created item:", res.data.shoppingDate);
       setItems([res.data, ...items]);
       setShowCreateForm(false);
       setNewComment("");
       setNewIngredientsText("");
+      setNewShoppingDate("");
     } catch (err) {
       console.error("Failed to create item:", err);
       alert("Failed to create shopping list item");
@@ -658,24 +684,16 @@ const ShoppingTab = ({ isDarkMode }) => {
   };
 
   const updateItem = async (id) => {
-    if (!editComment.trim()) {
-      alert("Comment cannot be empty");
-      return;
-    }
+    if (!editComment.trim()) return alert("Comment cannot be empty");
     const ingredients = parseIngredients(editIngredientsText);
-    if (ingredients.length === 0) {
-      alert("Please enter at least one ingredient");
-      return;
-    }
-
-    // Find the existing item to get its recipeId
-    const existingItem = items.find(item => item._id === id);
-    const recipeId = "manual-entry";
+    if (ingredients.length === 0) return alert("Add at least one ingredient");
 
     const payload = {
+      recipeId: "manual-entry",
       comment: editComment,
       ingredients,
-      recipeId,  // use existing item's recipeId here
+      status: editStatus,
+      shoppingDate: editShoppingDate ? adjustDateMinusHours(editShoppingDate, 5) : null,
     };
 
     try {
@@ -686,6 +704,8 @@ const ShoppingTab = ({ isDarkMode }) => {
       setEditingId(null);
       setEditComment("");
       setEditIngredientsText("");
+      setEditStatus("pending");
+      setEditShoppingDate("");
     } catch (err) {
       console.error("Failed to update item:", err);
     }
@@ -698,73 +718,64 @@ const ShoppingTab = ({ isDarkMode }) => {
       await axios.delete(`http://localhost:5000/api/list/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setItems(items.filter(item => item._id !== id));
+      setItems(items.filter((item) => item._id !== id));
     } catch (err) {
       console.error("Failed to delete item:", err);
     }
   };
 
   return (
-    <div className={`p-6 max-w-3xl mx-auto ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>
+    <div className={`p-3 md:p-6 max-w-3xl mx-auto ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>
       <div className="flex justify-between items-center mb-6 border-b-2 pb-2">
         <h2 className={`text-3xl font-extrabold ${isDarkMode ? 'text-gray-100' : 'text-gray-900'}`}>
-          My Shopping List
+          Shopping List
         </h2>
         <button
           onClick={() => setShowCreateForm(!showCreateForm)}
           className={`flex items-center px-4 py-2 ${isDarkMode ? 'bg-gray-600 hover:bg-gray-700 text-gray-200' : 'bg-purple-600 hover:bg-purple-700 text-white'} rounded-lg transition`}
         >
           <FiPlus className="mr-2" size={20} />
-          Add New Item
+          Add Item
         </button>
       </div>
 
-      {/* Create Form */}
       {showCreateForm && (
         <div className={`rounded-xl p-6 mb-6 border-2 ${isDarkMode ? 'bg-gray-600 border-gray-500' : 'bg-gray-50 border-purple-200'}`}>
-          <h3 className={`text-xl font-semibold ${isDarkMode ? 'text-gray-100' : 'text-gray-800'} mb-4`}>Create New Shopping List</h3>
-          
-          <label className={`block mb-2 font-semibold ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>Comment/Title:</label>
+          <h3 className={`text-xl font-semibold ${isDarkMode ? 'text-gray-100' : 'text-gray-800'} mb-4`}>
+            Create New Shopping List
+          </h3>
+
+          <label className="block mb-2 font-semibold">Comment/Title:</label>
           <input
             type="text"
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
-            className={`w-full p-3 border ${isDarkMode ? 'bg-gray-500 border-gray-400' : 'bg-white border-gray-300'} rounded-lg mb-4 focus:outline-none focus:ring-2 ${isDarkMode ? 'focus:ring-gray-400' : 'focus:ring-purple-500'}`}
-            placeholder="Enter a comment or title for this shopping list"
+            className={`w-full p-3 border rounded-lg mb-4 ${isDarkMode ? 'bg-gray-500 border-gray-400 text-white' : 'bg-white border-gray-300'}`}
           />
 
-          <label className={`block mb-2 font-semibold ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>
-            Ingredients (one per line):
-          </label>
+          <label className="block mb-2 font-semibold">Ingredients (one per line):</label>
           <textarea
             rows={5}
             value={newIngredientsText}
             onChange={(e) => setNewIngredientsText(e.target.value)}
-            className={`w-full p-3 border ${isDarkMode ? 'bg-gray-500 border-gray-400' : 'bg-white border-gray-300'} rounded-lg mb-4 resize-none focus:outline-none focus:ring-2 ${isDarkMode ? 'focus:ring-gray-400' : 'focus:ring-purple-500'}`}
-            placeholder="e.g., 
-flour
-sugar
-eggs
-milk"
+            className={`w-full p-3 border rounded-lg mb-4 resize-none ${isDarkMode ? 'bg-gray-500 border-gray-400 text-white' : 'bg-white border-gray-300'}`}
+          />
+
+          <label className="block mb-2 font-semibold">Shopping Date & Time:</label>
+          <input
+            type="datetime-local"
+            value={newShoppingDate}
+            onChange={(e) => setNewShoppingDate(e.target.value)}
+            className={`w-full p-3 mb-4 border rounded-lg ${isDarkMode ? 'bg-gray-500 border-gray-400 text-white' : 'bg-white border-gray-300'}`}
           />
 
           <div className="flex gap-4">
             <button
               onClick={createItem}
               disabled={creating}
-              className={`px-6 py-2 ${isDarkMode ? 'bg-green-700 hover:bg-green-800' : 'bg-green-600 hover:bg-green-700'} text-white rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed`}
+              className={`px-6 py-2 ${isDarkMode ? 'bg-green-700 hover:bg-green-800' : 'bg-green-600 hover:bg-green-700'} text-white rounded-lg`}
             >
-              {creating ? (
-                <div className="flex items-center">
-                  <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-white mr-2"></div>
-                  Creating...
-                </div>
-              ) : (
-                <>
-                  <FiCheck className="inline mr-2" size={18} />
-                  Create
-                </>
-              )}
+              {creating ? "Creating..." : (<><FiCheck className="inline mr-2" size={18} />Create</>)}
             </button>
             <button
               onClick={() => {
@@ -772,7 +783,7 @@ milk"
                 setNewComment("");
                 setNewIngredientsText("");
               }}
-              className={`px-6 py-2 ${isDarkMode ? 'bg-gray-400 hover:bg-gray-500' : 'bg-gray-300 hover:bg-gray-400'} text-gray-700 rounded-lg transition`}
+              className="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
             >
               <FiX className="inline mr-2" size={18} />
               Cancel
@@ -786,87 +797,71 @@ milk"
           <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-purple-600"></div>
         </div>
       ) : items.length === 0 ? (
-        <p className={`text-center text-lg mt-10 ${isDarkMode ? 'text-gray-300' : 'text-gray-500'}`}>No shopping items available.</p>
+        <p className="text-center text-lg mt-10 text-gray-400">No shopping items available.</p>
       ) : (
         <ul className="space-y-6">
           {items.map((item) => (
-            <li
-              key={item._id}
-              className={`rounded-xl shadow-md p-6 ${isDarkMode ? 'bg-gray-600 shadow-gray-700' : 'bg-white shadow-lg'} transition-shadow`}
-            >
+            <li key={item._id} className={`rounded-xl shadow-md p-6 ${isDarkMode ? 'bg-gray-600' : 'bg-white'}`}>
               {editingId === item._id ? (
                 <>
-                  <label className={`block mb-2 font-semibold ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>Edit Comment:</label>
                   <input
-                    type="text"
                     value={editComment}
                     onChange={(e) => setEditComment(e.target.value)}
-                    className={`w-full p-3 border ${isDarkMode ? 'bg-gray-500 border-gray-400' : 'bg-white border-gray-300'} rounded-lg mb-4 focus:outline-none focus:ring-2 ${isDarkMode ? 'focus:ring-gray-400' : 'focus:ring-purple-500'}`}
-                    placeholder="Edit comment"
+                    className={`w-full p-2 mb-3 border rounded ${isDarkMode ? 'bg-gray-500 border-gray-400 text-white' : 'bg-white border-gray-300 text-gray-800'}`}
                   />
-
-                  <label className={`block mb-2 font-semibold ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>
-                    Edit Ingredients (one per line):
-                  </label>
                   <textarea
-                    rows={5}
                     value={editIngredientsText}
                     onChange={(e) => setEditIngredientsText(e.target.value)}
-                    className={`w-full p-3 border ${isDarkMode ? 'bg-gray-500 border-gray-400' : 'bg-white border-gray-300'} rounded-lg mb-4 resize-none focus:outline-none focus:ring-2 ${isDarkMode ? 'focus:ring-gray-400' : 'focus:ring-purple-500'}`}
-                    placeholder="e.g., flour"
+                    rows={3}
+                    className={`w-full p-2 mb-3 border rounded ${isDarkMode ? 'bg-gray-500 border-gray-400 text-white' : 'bg-white border-gray-300 text-gray-800'}`}
                   />
-
-                  <div className="flex gap-4">
-                    <button
-                      onClick={() => updateItem(item._id)}
-                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
-                      title="Save"
-                    >
+                  <select
+                    value={editStatus}
+                    onChange={(e) => setEditStatus(e.target.value)}
+                    className={`w-full p-2 mb-3 border rounded ${isDarkMode ? 'bg-gray-500 border-gray-400 text-white' : 'bg-white border-gray-300 text-gray-800'}`}
+                  >
+                    <option value="pending">Pending</option>
+                    <option value="purchased">Purchased</option>
+                  </select>
+                  <input
+                    type="datetime-local"
+                    value={editShoppingDate}
+                    onChange={(e) => setEditShoppingDate(e.target.value)}
+                    className={`w-full p-2 mb-3 border rounded ${isDarkMode ? 'bg-gray-500 border-gray-400 text-white' : 'bg-white border-gray-300 text-gray-800'}`}
+                  />
+                  <div className="flex gap-2">
+                    <button onClick={() => updateItem(item._id)} className="text-green-600">
                       <FiCheck size={20} />
                     </button>
-                    <button
-                      onClick={() => {
-                        setEditingId(null);
-                        setEditComment("");
-                        setEditIngredientsText("");
-                      }}
-                      className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition"
-                      title="Cancel"
-                    >
+                    <button onClick={() => setEditingId(null)} className="text-gray-500">
                       <FiX size={20} />
                     </button>
                   </div>
                 </>
               ) : (
                 <>
-                  <h3 className={`text-xl font-semibold ${isDarkMode ? 'text-gray-100' : 'text-gray-800'} mb-3 border-b ${isDarkMode ? 'border-gray-500' : 'border-purple-300'} pb-1`}>
-                    {item.comment || "No Comment"}
-                  </h3>
-                  <ul className={`list-disc list-inside space-y-1 mb-4 ${isDarkMode ? 'text-gray-300' : 'text-gray-800'}`}>
-                    {item.ingredients.map((ing, i) => (
-                      <li key={i} className="pl-2 list-disc">
-                        {ing.name}
-                      </li>
-                    ))}
+                  <h3 className="text-xl font-semibold mb-2">{item.comment}</h3>
+                  <ul className="list-disc list-inside mb-2">
+                    {item.ingredients.map((ing, i) => <li key={i}>{ing.name}</li>)}
                   </ul>
-                  <div className="flex items-center gap-4">
-                    <button
-                      onClick={() => {
-                        setEditingId(item._id);
-                        setEditComment(item.comment);
-                        setEditIngredientsText(ingredientsToText(item.ingredients));
-                      }}
-                      className={`text-purple-600 hover:text-purple-800 font-semibold ${isDarkMode ? 'text-purple-300' : ''}`}
-                      title="Edit"
-                    >
+                  <p className="text-sm mb-1">Status: <strong>{item.status}</strong></p>
+                  <p className="text-sm mb-2">
+                    Shopping Date: {item.shoppingDate
+                      ? new Date(new Date(item.shoppingDate).getTime() - 5 * 60 * 60 * 1000).toLocaleString()
+                      : "Not set"}
+                  </p>
+
+                  <div className="flex gap-4">
+                    <button onClick={() => {
+                      setEditingId(item._id);
+                      setEditComment(item.comment);
+                      setEditIngredientsText(ingredientsToText(item.ingredients));
+                      setEditStatus(item.status || "pending");
+                      setEditShoppingDate(item.shoppingDate ? new Date(item.shoppingDate).toISOString().slice(0, 16) : "");
+                    }}>
                       <FiEdit3 size={22} />
                     </button>
-
-                    <button
-                      onClick={() => deleteItem(item._id)}
-                      className={`text-red-600 hover:text-red-800 font-semibold ${isDarkMode ? 'text-red-300' : ''}`}
-                      title="Delete"
-                    >
+                    <button onClick={() => deleteItem(item._id)} className="text-red-500">
                       <FiTrash2 size={22} />
                     </button>
                   </div>

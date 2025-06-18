@@ -2,7 +2,7 @@ import { useAuth } from "../context/AuthContext";
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
-import { FiSettings, FiHeart, FiBookmark, FiUser, FiBarChart2, FiLogOut, FiExternalLink, FiTrash2, FiEdit3, FiCheck, FiX, FiMoon, FiSun, FiPlus, FiSearch  } from "react-icons/fi";
+import { FiSettings, FiHeart, FiBookmark, FiUser, FiBarChart2, FiLogOut, FiExternalLink, FiTrash2, FiEdit3, FiCheck, FiX,FiHome, FiMoon, FiSun, FiPlus, FiSearch  } from "react-icons/fi";
 import { Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -181,6 +181,13 @@ const AdminDash = () => {
             
             <nav className="flex-1 space-y-2">
               <button
+                onClick={() => navigate("/")}
+                className={`flex items-center w-full px-4 py-3 rounded-lg transition ${darkMode ? 'text-gray-300 hover:bg-gray-600' : 'text-purple-200 hover:bg-purple-800'}`}
+              >
+                <FiHome className="mr-3" />
+                Home
+              </button>
+              <button
                 onClick={() => setActiveTab("overview")}
                 className={`flex items-center w-full px-4 py-3 rounded-lg transition ${
                   activeTab === "overview" 
@@ -260,6 +267,12 @@ const AdminDash = () => {
 
             {/* Mobile tabs */}
             <div className="md:hidden flex overflow-x-auto mb-6 pb-2 space-x-2">
+              <button
+                onClick={() => navigate("/")}
+                className={`px-4 py-2 rounded-full text-sm whitespace-nowrap ${darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700'}`}
+              >
+                Home
+              </button>
               {["overview", "users"].map((tab) => (
                 <button
                   key={tab}
@@ -299,6 +312,9 @@ const OverviewTab = ({ userData, darkMode }) => {
   const [todayActivitiesCount, setTodayActivitiesCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [chartData, setChartData] = useState({ labels: [], saved: [], users: [] });
+  const [page, setPage] = useState(1);
+const [totalPages, setTotalPages] = useState(1);
+
 
   useEffect(() => {
     const fetchOverview = async () => {
@@ -326,11 +342,13 @@ const OverviewTab = ({ userData, darkMode }) => {
           users: users.map(item => item.count),
         });
 
-        const activityRes = await axios.get("http://localhost:5000/api/adminuser/activities?page=1&limit=10", {
+        const activityRes = await axios.get(`http://localhost:5000/api/adminuser/activities?page=${page}&limit=10`, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
         setActivities(activityRes.data.activities || []);
+        setTotalPages(activityRes.data.pagination?.pages || 1);
+
       } catch (err) {
         console.error("Failed to fetch overview data:", err);
       } finally {
@@ -339,7 +357,8 @@ const OverviewTab = ({ userData, darkMode }) => {
     };
 
     fetchOverview();
-  }, []);
+  }, [page]);
+
 
   return (
     <div className="p-3">
@@ -365,7 +384,7 @@ const OverviewTab = ({ userData, darkMode }) => {
       </div>
 
       {/* CHARTS SECTION */}
-      <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'}  rounded-lg border ${darkMode ? 'border-gray-700' : 'border-gray-200'} mb-8`}>
+      <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-1  rounded-lg border ${darkMode ? 'border-gray-700' : 'border-gray-200'} mb-8`}>
         <h3 className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
           Weekly Trends
         </h3>
@@ -478,34 +497,59 @@ const OverviewTab = ({ userData, darkMode }) => {
       </div>
 
       {/* RECENT ACTIVITY */}
-      <div className={`${darkMode ? 'bg-gray-700' : 'bg-white'} border ${darkMode ? 'border-gray-600' : 'border-gray-200'} rounded-lg p-3`}>
-        <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'} mb-4`}>Recent Activity</h3>
-        {loading ? (
-          <p className={darkMode ? 'text-gray-300' : 'text-gray-600'}>Loading activities...</p>
-        ) : activities.length > 0 ? (
-          <ul className="space-y-4">
-            {activities.map((activity) => (
-              <li key={activity._id} className="flex items-start">
-                <div className={`${darkMode ? 'bg-purple-800' : 'bg-purple-100'} p-2 rounded-full mr-3`}>
-                  <FiBookmark className="text-purple-600" />
-                </div>
-                <div>
-                  <p className={darkMode ? 'text-gray-200' : 'text-gray-800'}>
-                    {activity.userId.name} {activity.comment}
-                  </p>
-                  <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                    {new Date(activity.createdAt).toLocaleString()}
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <div className="text-center py-8">
-            <p className={darkMode ? 'text-gray-400' : 'text-gray-500'}>No recent activity found</p>
-          </div>
-        )}
+<div className={`${darkMode ? 'bg-gray-700' : 'bg-white'} border ${darkMode ? 'border-gray-600' : 'border-gray-200'} rounded-lg p-3`}>
+  <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'} mb-4`}>Recent Activity</h3>
+
+  {loading ? (
+    <p className={darkMode ? 'text-gray-300' : 'text-gray-600'}>Loading activities...</p>
+  ) : activities.length > 0 ? (
+    <>
+      <ul className="space-y-4">
+        {activities.map((activity) => (
+          <li key={activity._id} className="flex items-start">
+            <div className={`${darkMode ? 'bg-purple-800' : 'bg-purple-100'} p-2 rounded-full mr-3`}>
+              <FiBookmark className="text-purple-600" />
+            </div>
+            <div>
+              <p className={darkMode ? 'text-gray-200' : 'text-gray-800'}>
+                {activity.userId.name} {activity.comment}
+              </p>
+              <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                {new Date(activity.createdAt).toLocaleString()}
+              </p>
+            </div>
+          </li>
+        ))}
+      </ul>
+
+      {/* Pagination Controls */}
+      <div className="flex justify-between items-center mt-6">
+        <button
+          onClick={() => setPage(prev => Math.max(prev - 1, 1))}
+          disabled={page === 1}
+          className={`px-3 py-1 rounded ${page === 1 ? 'bg-gray-400 cursor-not-allowed' : 'bg-purple-600 text-white hover:bg-purple-700'}`}
+        >
+          Previous
+        </button>
+        <span className={`${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+          Page {page} of {totalPages}
+        </span>
+        <button
+          onClick={() => setPage(prev => Math.min(prev + 1, totalPages))}
+          disabled={page === totalPages}
+          className={`px-3 py-1 rounded ${page === totalPages ? 'bg-gray-400 cursor-not-allowed' : 'bg-purple-600 text-white hover:bg-purple-700'}`}
+        >
+          Next
+        </button>
       </div>
+    </>
+  ) : (
+    <div className="text-center py-8">
+      <p className={darkMode ? 'text-gray-400' : 'text-gray-500'}>No recent activity found</p>
+    </div>
+  )}
+</div>
+
     </div>
   );
 };
