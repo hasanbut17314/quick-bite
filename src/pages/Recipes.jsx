@@ -3,6 +3,9 @@ import axios from 'axios';
 import { FiSearch, FiClock, FiShare2, FiBookmark, FiHeart } from 'react-icons/fi';
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import Papa from 'papaparse';
+import Fuse from 'fuse.js';
+
 
 const Recipes = ({ isDarkMode, toggleDarkMode }) => {
   const [recipes, setRecipes] = useState([]);
@@ -20,6 +23,10 @@ const Recipes = ({ isDarkMode, toggleDarkMode }) => {
   const [searched, setSearched] = useState(false);
   const [savedRecipes, setSavedRecipes] = useState([]);
   const [favRecipes, setFavRecipes] = useState([]);
+  const [isApiError, setIsApiError] = useState(false);
+  const fallbackPath = '/full_dataset.csv';
+
+
 
   const dietOptions = [
     { value: 'balanced', label: 'Balanced' },
@@ -63,6 +70,11 @@ const Recipes = ({ isDarkMode, toggleDarkMode }) => {
   ];
 
   const edamamAppId = 'b8e6b112';
+  // fake apis
+  // const edamamAppKey = '9eac36ceba817b8386398fe7376d89';
+  // const spoonacularApiKey = 'a927b1afa7d442d6804d75615e1099';
+  
+  // real apis
   const edamamAppKey = '9eac36ceba817b8386398fe7376d8019';
   const spoonacularApiKey = 'a927b1afa7d442d6804d75615efa1099';
 
@@ -128,19 +140,87 @@ const Recipes = ({ isDarkMode, toggleDarkMode }) => {
               : 0
           }
         }));
-
         setRecipes(mappedSpoonacularResults);
       } else {
         setRecipes(edamamResults);
       }
+      setIsApiError(false);
     } catch (error) {
       console.error('Error fetching recipes:', error);
-      setRecipes([]);
+      setIsApiError(true);
+      fallbackSearch(query)
     } finally {
       setLoading(false);
       searchActivity(query);
     }
+    
   };
+ const fallbackSearch = (queryText) => {
+
+  const MAX_ROWS = 100;
+  let allData = [];
+  let parserRef = null;
+
+  Papa.parse(fallbackPath, {
+    download: true,
+    header: true,
+    chunk: (results, parser) => {
+      if (!parserRef) parserRef = parser;
+
+
+      allData = allData.concat(results.data);
+
+      // Stop parsing when max rows are collected
+      if (allData.length >= MAX_ROWS) {
+        parser.abort(); // Stop further chunks
+        processData();   // Proceed to search
+      }
+    },
+    complete: () => {
+      // In case parser isn't aborted, still proceed with whatever was parsed
+      if (allData.length < MAX_ROWS) {
+        processData();
+      }
+    },
+    error: (err) => {
+      console.error('CSV parse error', err);
+      setRecipes([]);
+    }
+  });
+
+  function processData() {
+
+    const fuse = new Fuse(allData, {
+      keys: ['title', 'ingredients', 'NER'],
+      threshold: 0.3
+    });
+
+    const matches = fuse.search(queryText)
+  .slice(0, 20)
+  .map(m => {
+    const rawLink = m.item.link || '';
+    const fullLink = rawLink.startsWith('http') ? rawLink : `https://${rawLink}`;
+
+    return {
+      recipe: {
+        uri: m.item.id || m.item.title,
+        label: m.item.title,
+        image: m.item.image || '',
+        url: fullLink,
+        totalTime: m.item.time || 'N/A',
+        calories: parseInt(m.item.calories) || 0
+      }
+    };
+  });
+
+
+
+    setRecipes(matches);
+  }
+};
+
+
+
 
   useEffect(() => {
     const fetchSavedRecipes = async () => {
@@ -492,7 +572,11 @@ const saveActivity = async (title) => {
             </div>
           )}
         </form>
-
+          {isApiError && (
+            <p className="text-center text-orange-500 mb-6">
+              ⚠️ API failed or limit hit — showing offline results instead.
+            </p>
+          )}
         {/* Results */}
         <div className="mb-16">
           {loading ? (
@@ -506,55 +590,73 @@ const saveActivity = async (title) => {
                   <h2 className="text-2xl font-bold mb-6">Found {recipes.length} Recipes</h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                     {recipes.map((recipeData, index) => {
-                      const { recipe } = recipeData;
-                      const isSaved = isRecipeSaved(recipe.url);
-                      const isFav = isRecipeFav(recipe.url);
+  const { recipe } = recipeData;
+  const isSaved = isRecipeSaved(recipe.url);
+  const isFav = isRecipeFav(recipe.url);
+  const isFallback = !recipe.image; // detect fallback item
 
-                      return (
-                        <div key={index} className={`${cardClasses} rounded-xl overflow-hidden hover:shadow-2xl transition-shadow relative`}>
-                          <img src={recipe.image} alt={recipe.label} className="w-full h-48 object-cover" />
-                          <div className="p-6">
-                            <h3 className="text-lg font-semibold mb-2">{recipe.label}</h3>
-                            <div className="flex items-center mb-2">
-                              <FiClock className="mr-2" />
-                              <span>{recipe.totalTime || "N/A"} min</span>
-                            </div>
-                            <p className="mb-4 font-medium">{Math.round(recipe.calories)} Calories</p>
-                            <div className="flex justify-between items-center">
-                              <a
-                                href={recipe.url}
-                                target="_blank"
-                                onClick={() => saveActivity(recipe.label)}
-                                rel="noopener noreferrer"
-                                className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center"
-                              >
-                                View Recipe
-                                <FiShare2 className="ml-2" />
-                              </a>
-                              <div className="flex space-x-2">
-                                <button
-                                  onClick={() => (isFav ? removeFav(recipe.url) : FavRecipe(recipe))}
-                                  className={`p-2 rounded-full ${isFav ? 'text-red-500' : 'text-gray-400 hover:text-red-500'}`}
-                                >
-                                  <FiHeart className={isFav ? 'fill-current' : ''} />
-                                </button>
-                                <button
-                                  onClick={() => (isSaved ? removeRecipe(recipe.url) : saveRecipe(recipe))}
-                                  className={`p-2 rounded-full ${isSaved ? 'text-yellow-500' : 'text-gray-400 hover:text-yellow-500'}`}
-                                >
-                                  <FiBookmark className={isSaved ? 'fill-current' : ''} />
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                          {isSaved && (
-                            <div className="absolute top-2 right-2 bg-white text-purple-600 px-2 py-1 rounded-full text-xs font-bold flex items-center">
-                              <FiBookmark className="mr-1" /> Saved
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
+  return (
+    <div key={index} className={`${cardClasses} rounded-xl overflow-hidden hover:shadow-2xl transition-shadow relative`}>
+      {isFallback ? (
+        <div className="p-6">
+          <h3 className="text-lg font-semibold mb-2">{recipe.label}</h3>
+          <a
+            href={recipe.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-purple-600 hover:underline"
+          >
+            View Recipe
+          </a>
+        </div>
+      ) : (
+        <>
+          <img src={recipe.image} alt={recipe.label} className="w-full h-48 object-cover" />
+          <div className="p-6">
+            <h3 className="text-lg font-semibold mb-2">{recipe.label}</h3>
+            <div className="flex items-center mb-2">
+              <FiClock className="mr-2" />
+              <span>{recipe.totalTime || "N/A"} min</span>
+            </div>
+            <p className="mb-4 font-medium">{Math.round(recipe.calories)} Calories</p>
+            <div className="flex justify-between items-center">
+              <a
+                href={recipe.url}
+                target="_blank"
+                onClick={() => saveActivity(recipe.label)}
+                rel="noopener noreferrer"
+                className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center"
+              >
+                View Recipe
+                <FiShare2 className="ml-2" />
+              </a>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => (isFav ? removeFav(recipe.url) : FavRecipe(recipe))}
+                  className={`p-2 rounded-full ${isFav ? 'text-red-500' : 'text-gray-400 hover:text-red-500'}`}
+                >
+                  <FiHeart className={isFav ? 'fill-current' : ''} />
+                </button>
+                <button
+                  onClick={() => (isSaved ? removeRecipe(recipe.url) : saveRecipe(recipe))}
+                  className={`p-2 rounded-full ${isSaved ? 'text-yellow-500' : 'text-gray-400 hover:text-yellow-500'}`}
+                >
+                  <FiBookmark className={isSaved ? 'fill-current' : ''} />
+                </button>
+              </div>
+            </div>
+          </div>
+          {isSaved && (
+            <div className="absolute top-2 right-2 bg-white text-purple-600 px-2 py-1 rounded-full text-xs font-bold flex items-center">
+              <FiBookmark className="mr-1" /> Saved
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+})}
+
                   </div>
                 </>
               ) : (
