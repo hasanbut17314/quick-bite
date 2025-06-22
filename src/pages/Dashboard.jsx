@@ -2,7 +2,7 @@ import { useAuth } from "../context/AuthContext";
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
-import { FiSettings, FiHeart, FiBookmark, FiUser, FiBarChart2, FiLogOut, FiExternalLink, FiTrash2, FiShoppingCart, FiPlus, FiEdit3, FiCheck, FiX, FiHome } from "react-icons/fi";
+import { FiSettings, FiHeart, FiBookmark, FiUser, FiBarChart2, FiLogOut, FiExternalLink, FiTrash2, FiShoppingCart, FiPlus, FiEdit3, FiCheck, FiX, FiHome, FiPrinter } from "react-icons/fi";
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
@@ -626,7 +626,6 @@ const ShoppingTab = ({ isDarkMode }) => {
       const res = await axios.get("http://localhost:5000/api/list", {
         headers: { Authorization: `Bearer ${token}` },
       });
-      
       setItems(res.data);
     } catch (err) {
       console.error("Failed to fetch items:", err);
@@ -669,7 +668,6 @@ const ShoppingTab = ({ isDarkMode }) => {
       const res = await axios.post("http://localhost:5000/api/list", payload, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      console.log("Created item:", res.data.shoppingDate);
       setItems([res.data, ...items]);
       setShowCreateForm(false);
       setNewComment("");
@@ -713,7 +711,6 @@ const ShoppingTab = ({ isDarkMode }) => {
 
   const deleteItem = async (id) => {
     if (!window.confirm("Are you sure you want to delete this item?")) return;
-
     try {
       await axios.delete(`http://localhost:5000/api/list/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -722,6 +719,44 @@ const ShoppingTab = ({ isDarkMode }) => {
     } catch (err) {
       console.error("Failed to delete item:", err);
     }
+  };
+
+  const handlePrint = (item) => {
+    const printWindow = window.open("", "_blank", "width=600,height=800");
+    const htmlContent = `
+      <html>
+        <head>
+          <title>Shopping List - ${item.comment}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; }
+            h2 { color: #6B21A8; }
+            ul { list-style: disc; padding-left: 20px; }
+            .info { margin: 10px 0; }
+          </style>
+        </head>
+        <body>
+          <h2>🛒 Shopping List</h2>
+          <div class="info"><strong>Comment:</strong> ${item.comment}</div>
+          <div class="info"><strong>Status:</strong> ${item.status}</div>
+          <div class="info"><strong>Shopping Date:</strong> ${
+            item.shoppingDate
+              ? new Date(new Date(item.shoppingDate).getTime() - 5 * 60 * 60 * 1000).toLocaleString()
+              : "Not set"
+          }</div>
+          <h3>Ingredients:</h3>
+          <ul>
+            ${item.ingredients.map((ing) => `<li>${ing.name}</li>`).join("")}
+          </ul>
+          <script>
+            window.onload = function() {
+              window.print();
+            };
+          </script>
+        </body>
+      </html>
+    `;
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
   };
 
   return (
@@ -863,6 +898,9 @@ const ShoppingTab = ({ isDarkMode }) => {
                     </button>
                     <button onClick={() => deleteItem(item._id)} className="text-red-500">
                       <FiTrash2 size={22} />
+                    </button>
+                    <button onClick={() => handlePrint(item)} className="text-blue-500">
+                      <FiPrinter size={22} />
                     </button>
                   </div>
                 </>
