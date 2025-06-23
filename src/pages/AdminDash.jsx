@@ -561,14 +561,17 @@ const UsersTab = ({ userData, darkMode }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [activityLoading, setActivityLoading] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    password: ''
-  });
+  const [formData, setFormData] = useState({ name: '', email: '', password: '' });
+
+  const [showActivityModal, setShowActivityModal] = useState(false);
+  const [userActivities, setUserActivities] = useState([]);
+  const [activityPage, setActivityPage] = useState(1);
+  const [activityTotalPages, setActivityTotalPages] = useState(1);
+  const [activityStats, setActivityStats] = useState(null);
 
   useEffect(() => {
     fetchUsers();
@@ -578,9 +581,7 @@ const UsersTab = ({ userData, darkMode }) => {
     try {
       setLoading(true);
       const response = await axios.get(`http://localhost:5000/api/adminuser?page=${currentPage}&limit=10`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        }
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setUsers(response.data.users);
       setTotalPages(response.data.pagination.pages);
@@ -591,20 +592,35 @@ const UsersTab = ({ userData, darkMode }) => {
     }
   };
 
+  const fetchUserActivities = async (user, page = 1) => {
+    try {
+      setActivityLoading(true);
+      const response = await axios.get(`http://localhost:5000/api/activity/user/${user._id}?page=${page}&limit=5`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      setUserActivities(response.data.data.activities);
+      setActivityPage(response.data.data.pagination.currentPage);
+      setActivityTotalPages(response.data.data.pagination.totalPages);
+      setActivityStats(response.data.data.userStats);
+      setSelectedUser(user);
+      setShowActivityModal(true);
+    } catch (err) {
+      console.error("Failed to fetch user activities", err);
+      alert("Could not load user activity.");
+    } finally {
+      setActivityLoading(true);
+    }
+  };
+
   const handleCreateUser = async (e) => {
     e.preventDefault();
-    
-    // Password validation
     if (formData.password.length < 8) {
       alert('Password must be at least 8 characters long');
       return;
     }
-    
     try {
       await axios.post('http://localhost:5000/api/adminuser', formData, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        }
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setShowCreateModal(false);
       setFormData({ name: '', email: '', password: '' });
@@ -622,9 +638,7 @@ const UsersTab = ({ userData, darkMode }) => {
         name: formData.name,
         email: formData.email
       }, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        }
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setShowEditModal(false);
       setSelectedUser(null);
@@ -640,9 +654,7 @@ const UsersTab = ({ userData, darkMode }) => {
     if (window.confirm('Are you sure you want to delete this user?')) {
       try {
         await axios.delete(`http://localhost:5000/api/adminuser/${userId}`, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
-          }
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
         fetchUsers();
       } catch (err) {
@@ -654,11 +666,7 @@ const UsersTab = ({ userData, darkMode }) => {
 
   const openEditModal = (user) => {
     setSelectedUser(user);
-    setFormData({
-      name: user.name,
-      email: user.email,
-      password: ''
-    });
+    setFormData({ name: user.name, email: user.email, password: '' });
     setShowEditModal(true);
   };
 
@@ -669,11 +677,12 @@ const UsersTab = ({ userData, darkMode }) => {
 
   return (
     <div className="p-6">
+      {/* Header */}
       <div className="flex justify-between items-center mb-6">
-        <h2 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Users </h2>
+        <h2 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Users</h2>
         <button
           onClick={() => setShowCreateModal(true)}
-          className={`flex items-center px-4 py-2 ${darkMode ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-500 hover:bg-blue-600'} text-white  rounded-lg transition`}
+          className={`flex items-center px-4 py-2 ${darkMode ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-500 hover:bg-blue-600'} text-white rounded-lg transition`}
         >
           <FiPlus className="mr-2" />
           Add User
@@ -689,39 +698,27 @@ const UsersTab = ({ userData, darkMode }) => {
             placeholder="Search users..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className={`w-full pl-10 pr-4 py-2 border rounded-lg ${
-              darkMode 
-                ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
-                : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
-            } focus:outline-none focus:ring-2 focus:ring-blue-500`}
+            className={`w-full pl-10 pr-4 py-2 border rounded-lg ${darkMode ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'} focus:outline-none focus:ring-2 focus:ring-blue-500`}
           />
         </div>
       </div>
 
+      {/* Table */}
       {loading ? (
         <div className="flex justify-center py-12">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
         </div>
       ) : (
         <>
-          {/* Users Table */}
           <div className={`${darkMode ? 'bg-gray-700' : 'bg-white'} rounded-lg overflow-hidden shadow`}>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className={darkMode ? 'bg-gray-600' : 'bg-gray-50'}>
                   <tr>
-                    <th className={`px-6 py-3 text-left text-xs font-medium ${darkMode ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider`}>
-                      User
-                    </th>
-                    <th className={`px-6 py-3 text-left text-xs font-medium ${darkMode ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider`}>
-                      Email
-                    </th>
-                    <th className={`px-6 py-3 text-left text-xs font-medium ${darkMode ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider`}>
-                      Role
-                    </th>
-                    <th className={`px-6 py-3 text-right text-xs font-medium ${darkMode ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider`}>
-                      Actions
-                    </th>
+                    <th className={`px-6 py-3 text-left text-xs font-medium ${darkMode ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider`}>User</th>
+                    <th className={`px-6 py-3 text-left text-xs font-medium ${darkMode ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider`}>Email</th>
+                    <th className={`px-6 py-3 text-left text-xs font-medium ${darkMode ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider`}>Role</th>
+                    <th className={`px-6 py-3 text-right text-xs font-medium ${darkMode ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider`}>Actions</th>
                   </tr>
                 </thead>
                 <tbody className={`${darkMode ? 'bg-gray-700' : 'bg-white'} divide-y ${darkMode ? 'divide-gray-600' : 'divide-gray-200'}`}>
@@ -729,45 +726,22 @@ const UsersTab = ({ userData, darkMode }) => {
                     <tr key={user._id}>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10">
-                            <img
-                              className="h-10 w-10 rounded-full"
-                              src={user.image || `https://ui-avatars.com/api/?name=${user.name}&background=random`}
-                              alt=""
-                            />
-                          </div>
+                          <img
+                            className="h-10 w-10 rounded-full"
+                            src={user.image || `https://ui-avatars.com/api/?name=${user.name}&background=random`}
+                            alt=""
+                          />
                           <div className="ml-4">
-                            <div className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                              {user.name}
-                            </div>
+                            <div className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>{user.name}</div>
                           </div>
                         </div>
                       </td>
-                      <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? 'text-gray-300' : 'text-gray-900'}`}>
-                        {user.email}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          user.role === 'admin' 
-                            ? 'bg-red-100 text-red-800' 
-                            : 'bg-green-100 text-green-800'
-                        }`}>
-                          {user.role || 'user'}
-                        </span>
-                      </td>
+                      <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? 'text-gray-300' : 'text-gray-900'}`}>{user.email}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.role}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button
-                          onClick={() => openEditModal(user)}
-                          className="text-indigo-600 hover:text-indigo-900 mr-3"
-                        >
-                          <FiEdit3 />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteUser(user._id)}
-                          className="text-red-600 hover:text-red-900"
-                        >
-                          <FiTrash2 />
-                        </button>
+                        <button onClick={() => openEditModal(user)} className="text-indigo-600 hover:text-indigo-900 mr-3"><FiEdit3 /></button>
+                        <button onClick={() => handleDeleteUser(user._id)} className="text-red-600 hover:text-red-900 mr-3"><FiTrash2 /></button>
+                        <button onClick={() => fetchUserActivities(user)} className="text-blue-600 hover:text-blue-900"><FiBarChart2 /></button>
                       </td>
                     </tr>
                   ))}
@@ -777,27 +751,88 @@ const UsersTab = ({ userData, darkMode }) => {
           </div>
 
           {/* Pagination */}
-          <div className="flex justify-between items-center mt-6">
-            <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+          <div className="flex justify-between items-center mt-4">
+            <button
+              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              className={`px-3 py-1 rounded ${
+                currentPage === 1
+                  ? `${darkMode ? 'bg-gray-600 text-gray-400' : 'bg-gray-200 text-gray-400'} cursor-not-allowed`
+                  : `${darkMode ? 'bg-gray-600 hover:bg-gray-500 text-white' : 'bg-gray-300 hover:bg-gray-400 text-gray-700'}`
+              }`}
+            >
+              Previous
+            </button>
+            <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
               Page {currentPage} of {totalPages}
+            </span>
+            <button
+              onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className={`px-3 py-1 rounded ${
+                currentPage === totalPages
+                  ? `${darkMode ? 'bg-gray-600 text-gray-400' : 'bg-gray-200 text-gray-400'} cursor-not-allowed`
+                  : `${darkMode ? 'bg-gray-600 hover:bg-gray-500 text-white' : 'bg-gray-300 hover:bg-gray-400 text-gray-700'}`
+              }`}
+            >
+              Next
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* Activity Modal */}
+      {showActivityModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg p-6 w-full max-w-3xl overflow-y-auto max-h-[90vh]`}>
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>User Activity</h3>
+                {selectedUser && (
+                  <p className={`${darkMode ? 'text-gray-400' : 'text-gray-600'} text-sm`}>
+                    {selectedUser.name} – {selectedUser.email}
+                  </p>
+                )}
+              </div>
+              <button onClick={() => setShowActivityModal(false)} className={`${darkMode ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-700'}`}>
+                <FiX className="w-6 h-6" />
+              </button>
             </div>
-            <div className="flex space-x-2">
+            {activityLoading  && (
+              <div className={`mb-4 ${darkMode ? 'text-gray-200' : 'text-gray-800'}`}>
+                <p>Saved Recipes: {activityStats.savedRecipes}</p>
+                <p>Favorites: {activityStats.favorites}</p>
+                <p>Total Activities: {activityStats.totalActivities}</p>
+              </div>
+            )}
+            <div className="space-y-2">
+              {userActivities.map((activity, idx) => (
+                <div key={idx} className={`p-4 rounded ${darkMode ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-900'}`}>
+                  <p><strong>Comment:</strong> {activity.comment}</p>
+                  <p><strong>Date:</strong> {new Date(activity.createdAt).toLocaleString()}</p>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-between items-center mt-4">
               <button
-                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                disabled={currentPage === 1}
+                onClick={() => fetchUserActivities(selectedUser, activityPage - 1)}
+                disabled={activityPage === 1}
                 className={`px-3 py-1 rounded ${
-                  currentPage === 1
+                  activityPage === 1
                     ? `${darkMode ? 'bg-gray-600 text-gray-400' : 'bg-gray-200 text-gray-400'} cursor-not-allowed`
                     : `${darkMode ? 'bg-gray-600 hover:bg-gray-500 text-white' : 'bg-gray-300 hover:bg-gray-400 text-gray-700'}`
                 }`}
               >
                 Previous
               </button>
+              <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                Page {activityPage} of {activityTotalPages}
+              </span>
               <button
-                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                disabled={currentPage === totalPages}
+                onClick={() => fetchUserActivities(selectedUser, activityPage + 1)}
+                disabled={activityPage === activityTotalPages}
                 className={`px-3 py-1 rounded ${
-                  currentPage === totalPages
+                  activityPage === activityTotalPages
                     ? `${darkMode ? 'bg-gray-600 text-gray-400' : 'bg-gray-200 text-gray-400'} cursor-not-allowed`
                     : `${darkMode ? 'bg-gray-600 hover:bg-gray-500 text-white' : 'bg-gray-300 hover:bg-gray-400 text-gray-700'}`
                 }`}
@@ -805,163 +840,6 @@ const UsersTab = ({ userData, darkMode }) => {
                 Next
               </button>
             </div>
-          </div>
-        </>
-      )}
-
-      {/* Create User Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg p-6 w-full max-w-md`}>
-            <div className="flex justify-between items-center mb-4">
-              <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Create New User</h3>
-              <button
-                onClick={() => setShowCreateModal(false)}
-                className={`${darkMode ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-700'}`}
-              >
-                <FiX className="w-6 h-6" />
-              </button>
-            </div>
-            <form onSubmit={handleCreateUser}>
-              <div className="mb-4">
-                <label className={`block text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'} mb-2`}>
-                  Name
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  className={`w-full px-3 py-2 border rounded-lg ${
-                    darkMode 
-                      ? 'bg-gray-700 border-gray-600 text-white' 
-                      : 'bg-white border-gray-300 text-gray-900'
-                  } focus:outline-none focus:ring-2 focus:ring-blue-500`}
-                  required
-                />
-              </div>
-              <div className="mb-4">
-                <label className={`block text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'} mb-2`}>
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({...formData, email: e.target.value})}
-                  className={`w-full px-3 py-2 border rounded-lg ${
-                    darkMode 
-                      ? 'bg-gray-700 border-gray-600 text-white' 
-                      : 'bg-white border-gray-300 text-gray-900'
-                  } focus:outline-none focus:ring-2 focus:ring-blue-500`}
-                  required
-                />
-              </div>
-              <div className="mb-6">
-                <label className={`block text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'} mb-2`}>
-                  Password (minimum 8 characters)
-                </label>
-                <input
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) => setFormData({...formData, password: e.target.value})}
-                  className={`w-full px-3 py-2 border rounded-lg ${
-                    darkMode 
-                      ? 'bg-gray-700 border-gray-600 text-white' 
-                      : 'bg-white border-gray-300 text-gray-900'
-                  } focus:outline-none focus:ring-2 focus:ring-blue-500`}
-                  minLength="8"
-                  required
-                />
-              </div>
-              <div className="flex space-x-3">
-                <button
-                  type="button"
-                  onClick={() => setShowCreateModal(false)}
-                  className={`flex-1 px-4 py-2 border rounded-lg ${
-                    darkMode 
-                      ? 'border-gray-600 text-gray-300 hover:bg-gray-700' 
-                      : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                  } transition`}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-                >
-                  Create User
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Edit User Modal */}
-      {showEditModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg p-6 w-full max-w-md`}>
-            <div className="flex justify-between items-center mb-4">
-              <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Edit User</h3>
-              <button
-                onClick={() => setShowEditModal(false)}
-                className={`${darkMode ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-700'}`}
-              >
-                <FiX className="w-6 h-6" />
-              </button>
-            </div>
-            <form onSubmit={handleEditUser}>
-              <div className="mb-4">
-                <label className={`block text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'} mb-2`}>
-                  Name
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  className={`w-full px-3 py-2 border rounded-lg ${
-                    darkMode 
-                      ? 'bg-gray-700 border-gray-600 text-white' 
-                      : 'bg-white border-gray-300 text-gray-900'
-                  } focus:outline-none focus:ring-2 focus:ring-blue-500`}
-                  required
-                />
-              </div>
-              <div className="mb-6">
-                <label className={`block text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'} mb-2`}>
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({...formData, email: e.target.value})}
-                  className={`w-full px-3 py-2 border rounded-lg ${
-                    darkMode 
-                      ? 'bg-gray-700 border-gray-600 text-white' 
-                      : 'bg-white border-gray-300 text-gray-900'
-                  } focus:outline-none focus:ring-2 focus:ring-blue-500`}
-                  required
-                />
-              </div>
-              <div className="flex space-x-3">
-                <button
-                  type="button"
-                  onClick={() => setShowEditModal(false)}
-                  className={`flex-1 px-4 py-2 border rounded-lg ${
-                    darkMode 
-                      ? 'border-gray-600 text-gray-300 hover:bg-gray-700' 
-                      : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                  } transition`}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-                >
-                  Update User
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}
